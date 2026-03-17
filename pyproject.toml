@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skilgen"
+version = "0.1.0"
+description = "Generate agent-readable project skills and starter scaffolds from requirements documents."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Ravi Chandu Ummadisetti" }]
+license = { text = "MIT" }
+keywords = ["ai", "agents", "cli", "developer-tools", "skills"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Code Generators",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "deepagents>=0.4.11",
+  "langchain>=1.0.0",
+  "langchain-anthropic>=1.0.0",
+  "langchain-google-genai>=4.2.0",
+  "langchain-huggingface>=0.3.1",
+  "langchain-openai>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "twine>=5.1"]
+
+[project.scripts]
+skilgen = "skilgen.cli.main:console_main"
+
+[project.urls]
+Homepage = "https://github.com/RaviChanduUmmadisetti/skilgen"
+Repository = "https://github.com/RaviChanduUmmadisetti/skilgen"
+Issues = "https://github.com/RaviChanduUmmadisetti/skilgen/issues"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages.find]
+include = ["skilgen*"]

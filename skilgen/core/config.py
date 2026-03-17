@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from skilgen.core.models import SkilgenConfig
+
+
+DEFAULT_CONFIG = SkilgenConfig(
+    include_paths=["."],
+    exclude_paths=[".git", "__pycache__", ".venv", "node_modules"],
+    domains_override=[],
+    skill_depth=2,
+    update_trigger="manual",
+    langsmith_project=None,
+    model_provider="openai",
+    model="gpt-4.1-mini",
+    api_key_env="OPENAI_API_KEY",
+    model_temperature=None,
+    model_max_tokens=None,
+)
+
+
+def _parse_scalar(raw: str) -> str | int | float | bool | None:
+    value = raw.strip()
+    if value in {"", "null", "None"}:
+        return None
+    if value in {"true", "True"}:
+        return True
+    if value in {"false", "False"}:
+        return False
+    if value.isdigit():
+        return int(value)
+    try:
+        if "." in value:
+            return float(value)
+    except ValueError:
+        pass
+    if value.startswith(("'", '"')) and value.endswith(("'", '"')):
+        return value[1:-1]
+    return value
+
+
+def load_config(project_root: Path) -> SkilgenConfig:
+    path = project_root / "skilgen.yml"
+    if not path.exists():
+        return DEFAULT_CONFIG
+
+    data: dict[str, object] = {
+        "include_paths": [],
+        "exclude_paths": [],
+        "domains_override": [],
+        "skill_depth": DEFAULT_CONFIG.skill_depth,
+        "update_trigger": DEFAULT_CONFIG.update_trigger,
+        "langsmith_project": DEFAULT_CONFIG.langsmith_project,
+        "model_provider": DEFAULT_CONFIG.model_provider,
+        "model": DEFAULT_CONFIG.model,
+        "api_key_env": DEFAULT_CONFIG.api_key_env,
+        "model_temperature": DEFAULT_CONFIG.model_temperature,
+        "model_max_tokens": DEFAULT_CONFIG.model_max_tokens,
+    }
+    current_list: str | None = None
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("- "):
+            if current_list is None:
+                continue
+            items = data.setdefault(current_list, [])
+            if isinstance(items, list):
+                items.append(stripped[2:].strip())
+            continue
+        if ":" not in stripped:
+            continue
+        key, raw = stripped.split(":", 1)
+        key = key.strip()
+        raw = raw.strip()
+        if raw == "":
+            current_list = key
+            data.setdefault(key, [])
+            continue
+        current_list = None
+        data[key] = _parse_scalar(raw)
+
+    return SkilgenConfig(
+        include_paths=list(data.get("include_paths", [])),
+        exclude_paths=list(data.get("exclude_paths", [])),
+        domains_override=list(data.get("domains_override", [])),
+        skill_depth=int(data.get("skill_depth", DEFAULT_CONFIG.skill_depth)),
+        update_trigger=str(data.get("update_trigger", DEFAULT_CONFIG.update_trigger)),
+        langsmith_project=data.get("langsmith_project") if isinstance(data.get("langsmith_project"), str) or data.get("langsmith_project") is None else None,
+        model_provider=data.get("model_provider") if isinstance(data.get("model_provider"), str) or data.get("model_provider") is None else None,
+        model=data.get("model") if isinstance(data.get("model"), str) or data.get("model") is None else None,
+        api_key_env=data.get("api_key_env") if isinstance(data.get("api_key_env"), str) or data.get("api_key_env") is None else None,
+        model_temperature=float(data.get("model_temperature")) if isinstance(data.get("model_temperature"), (float, int)) else None,
+        model_max_tokens=int(data.get("model_max_tokens")) if isinstance(data.get("model_max_tokens"), int) else None,
+    )
+
+
+def render_default_config() -> str:
+    return """# Skilgen configuration
+include_paths:
+  - .
+exclude_paths:
+  - .git
+  - __pycache__
+  - .venv
+  - node_modules
+domains_override:
+skill_depth: 2
+update_trigger: manual
+langsmith_project:
+model_provider: openai
+model: gpt-4.1-mini
+api_key_env: OPENAI_API_KEY
+model_temperature:
+model_max_tokens:
+"""

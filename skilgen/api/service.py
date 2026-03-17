@@ -1,0 +1,252 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable
+
+from skilgen.api.jobs import get_job, job_payload, list_jobs, request_cancel, submit_job
+from skilgen.deep_agents_core import current_runtime_mode
+from skilgen.deep_agents_runtime import (
+    DeepAgentsRuntime,
+    native_analyze_payload,
+    native_features_payload,
+    native_fingerprint_payload,
+    native_intent_payload,
+    native_map_payload,
+    native_plan_payload,
+    native_preview_payload,
+    native_report_payload,
+    native_status_payload,
+    native_validate_payload,
+)
+from skilgen.delivery import run_delivery
+
+
+API_VERSION = "1.0"
+
+
+def _with_api_meta(payload: dict[str, object]) -> dict[str, object]:
+    return {"api_version": API_VERSION, **payload}
+
+
+def health_payload() -> dict[str, object]:
+    return _with_api_meta({"status": "ok", "service": "skilgen"})
+
+
+def fingerprint_payload(project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "fingerprint",
+            f"Fingerprint the project at {root} and return framework_fingerprint JSON.",
+            lambda: native_fingerprint_payload(root),
+        )
+    )
+
+
+def intent_payload(requirements: str | Path) -> dict[str, object]:
+    path = Path(requirements).resolve()
+    runtime = DeepAgentsRuntime(path.parent)
+    return _with_api_meta(
+        runtime.run(
+            "intent",
+            f"Parse the requirements file at {path} and return structured project intent JSON.",
+            lambda: native_intent_payload(path),
+        )
+    )
+
+
+def plan_payload(requirements: str | Path | None, project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    req = Path(requirements).resolve() if requirements is not None else None
+    runtime = DeepAgentsRuntime(root)
+    events = [
+        {"message": "Reading project scope and available inputs for roadmap planning."},
+        {"message": "Synthesizing implementation phases and sequencing the next delivery steps."},
+    ]
+    result = runtime.run(
+            "plan",
+            f"Build a roadmap plan for project_root={root} using requirements={req}. Return JSON with model and steps.",
+            lambda: native_plan_payload(req, root),
+        )
+    return _with_api_meta(
+        {
+            "runtime": current_runtime_mode(),
+            "events": events,
+            **result,
+        }
+    )
+
+
+def analyze_payload(project_root: str | Path, requirements: str | Path | None = None) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    req = Path(requirements).resolve() if requirements is not None else None
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "analyze",
+            f"Analyze project_root={root} requirements={req} and return JSON with project_root, framework_fingerprint, signals, import_graph, and optional detected_domains/skill_tree.",
+            lambda: native_analyze_payload(root, req),
+        )
+    )
+
+
+def deliver_payload(requirements: str | Path | None, project_root: str | Path) -> dict[str, object]:
+    events: list[dict[str, object]] = []
+
+    def report(message: str) -> None:
+        events.append({"message": message})
+
+    generated = run_delivery(
+        Path(requirements).resolve() if requirements is not None else None,
+        Path(project_root).resolve(),
+        progress_callback=report,
+    )
+    return _with_api_meta(
+        {
+            "runtime": current_runtime_mode(),
+            "events": events,
+            "generated_files": [str(path) for path in generated],
+        }
+    )
+
+
+def preview_payload(
+    requirements: str | Path | None,
+    project_root: str | Path,
+    *,
+    targets: tuple[str, ...] = ("docs", "skills"),
+    domains: tuple[str, ...] = (),
+) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    req = Path(requirements).resolve() if requirements is not None else None
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "preview",
+            f"Preview delivery for project_root={root} requirements={req} targets={list(targets)} domains={list(domains)} without writing files.",
+            lambda: native_preview_payload(req, root, targets=targets, domains=domains),
+        )
+    )
+
+
+def create_deliver_job(requirements: str | Path | None, project_root: str | Path) -> dict[str, object]:
+    resolved_requirements = str(Path(requirements).resolve()) if requirements is not None else None
+    resolved_root = str(Path(project_root).resolve())
+
+    def run_with_progress(report: Callable[[int, str], None]) -> dict[str, object]:
+        report(10, "Starting delivery and loading project inputs.")
+        report(25, "Reading the codebase and optional requirements.")
+        report(45, "Building project context and identifying implementation patterns.")
+        report(70, "Generating docs and skills for coding agents.")
+        result = deliver_payload(resolved_requirements, resolved_root)
+        report(90, "Finalizing generated outputs.")
+        return result
+
+    job = submit_job(
+        "deliver",
+        {"requirements": resolved_requirements, "project_root": resolved_root},
+        run_with_progress,
+    )
+    return _with_api_meta(job_payload(job))
+
+
+def cancel_job_payload(job_id: str, project_root: str | Path | None = None) -> dict[str, object]:
+    job = request_cancel(job_id, project_root)
+    if job is None:
+        return _with_api_meta({"error": "not_found", "job_id": job_id})
+    return _with_api_meta(job_payload(job))
+
+
+def resume_job_payload(job_id: str, project_root: str | Path | None = None) -> dict[str, object]:
+    job = get_job(job_id, project_root)
+    if job is None:
+        return _with_api_meta({"error": "not_found", "job_id": job_id})
+    requirements = job.payload.get("requirements")
+    resolved_root = job.payload.get("project_root")
+    if job.job_type != "deliver" or not isinstance(requirements, str) or not isinstance(resolved_root, str):
+        return _with_api_meta({"error": "unsupported_resume", "job_id": job_id})
+    if job.status not in {"failed", "cancelled"}:
+        return _with_api_meta({"error": "resume_not_allowed", "job_id": job_id, "status": job.status})
+    return create_deliver_job(requirements, resolved_root)
+
+
+def job_status_payload(job_id: str, project_root: str | Path | None = None) -> dict[str, object]:
+    job = get_job(job_id, project_root)
+    if job is None:
+        return _with_api_meta({"error": "not_found", "job_id": job_id})
+    return _with_api_meta(job_payload(job))
+
+
+def jobs_payload(project_root: str | Path | None = None) -> dict[str, object]:
+    return _with_api_meta({"jobs": [job_payload(job) for job in list_jobs(project_root)]})
+
+
+def features_payload(requirements: str | Path | None, project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    req = Path(requirements).resolve() if requirements is not None else None
+    runtime = DeepAgentsRuntime(root)
+    events = [
+        {"message": "Reading the codebase and optional requirements to identify product capabilities."},
+        {"message": "Grouping detected backend, frontend, and planning signals into a feature inventory."},
+    ]
+    result = runtime.run(
+            "features",
+            f"Build the feature inventory for project_root={root} requirements={req}. Return JSON with features.",
+            lambda: native_features_payload(req, root),
+        )
+    return _with_api_meta(
+        {
+            "runtime": current_runtime_mode(),
+            "events": events,
+            **result,
+        }
+    )
+
+
+def map_payload(project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "map",
+            f"Build the import and relationship map for project_root={root}. Return JSON with import_graph.",
+            lambda: native_map_payload(root),
+        )
+    )
+
+
+def status_payload(project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "status",
+            f"Summarize generated artifact status for project_root={root}.",
+            lambda: native_status_payload(root),
+        )
+    )
+
+
+def report_payload(project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "report",
+            f"Build a project report for project_root={root}. Return JSON with status, domains, signal_counts, and summary.",
+            lambda: native_report_payload(root),
+        )
+    )
+
+
+def validate_payload(project_root: str | Path) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    runtime = DeepAgentsRuntime(root)
+    return _with_api_meta(
+        runtime.run(
+            "validate",
+            f"Validate project_root={root}. Return JSON with valid, errors, warnings, coverage, and completeness_score.",
+            lambda: native_validate_payload(root),
+        )
+    )

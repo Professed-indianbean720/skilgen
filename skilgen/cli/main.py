@@ -1,0 +1,243 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from skilgen.api.server import run_server
+from skilgen.api.service import analyze_payload, preview_payload, report_payload, status_payload, validate_payload
+from skilgen import __version__
+from skilgen.agents import build_import_graph, build_roadmap_plan, extract_features, fingerprint_project
+from skilgen.agents.requirements_parser import parse_project_intent, parse_requirements_file
+from skilgen.deep_agents_core import current_runtime_mode
+from skilgen.delivery import run_delivery, watch_delivery
+from skilgen.core.config import load_config, render_default_config
+
+
+def emit_progress(message: str) -> None:
+    print(f"[skilgen] {message}", file=sys.stderr)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="skilgen", description="Requirements-driven skill and scaffold generator.")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    init = subparsers.add_parser("init", help="Write a default skilgen.yml to the project root.")
+    init.add_argument("--project-root", default=".")
+
+    scan = subparsers.add_parser("scan", help="Generate docs and skills from a requirements file.")
+    scan.add_argument("--requirements")
+    scan.add_argument("--project-root", default=".")
+    scan.add_argument("--target", choices=["all", "docs", "skills"], default="all")
+    scan.add_argument("--domain", action="append", choices=["requirements", "backend", "frontend", "roadmap"])
+    scan.add_argument("--dry-run", action="store_true")
+
+    deliver = subparsers.add_parser("deliver", help="Alias for scan for now; intended to grow into full delivery automation.")
+    deliver.add_argument("--requirements")
+    deliver.add_argument("--project-root", default=".")
+    deliver.add_argument("--target", choices=["all", "docs", "skills"], default="all")
+    deliver.add_argument("--domain", action="append", choices=["requirements", "backend", "frontend", "roadmap"])
+    deliver.add_argument("--dry-run", action="store_true")
+
+    update = subparsers.add_parser("update", help="Refresh generated outputs for all or selected domains.")
+    update.add_argument("--requirements")
+    update.add_argument("--project-root", default=".")
+    update.add_argument("--target", choices=["all", "docs", "skills"], default="all")
+    update.add_argument("--domain", action="append", choices=["requirements", "backend", "frontend", "roadmap"])
+    update.add_argument("--dry-run", action="store_true")
+
+    watch = subparsers.add_parser("watch", help="Watch the project and rerun generation when files change.")
+    watch.add_argument("--requirements")
+    watch.add_argument("--project-root", default=".")
+    watch.add_argument("--target", choices=["all", "docs", "skills"], default="all")
+    watch.add_argument("--domain", action="append", choices=["requirements", "backend", "frontend", "roadmap"])
+    watch.add_argument("--interval", type=float, default=2.0)
+    watch.add_argument("--cycles", type=int, default=0)
+    watch.add_argument("--once", action="store_true")
+
+    preview = subparsers.add_parser("preview", help="Preview which generated files would be written without changing the project.")
+    preview.add_argument("--requirements")
+    preview.add_argument("--project-root", default=".")
+    preview.add_argument("--target", choices=["all", "docs", "skills"], default="all")
+    preview.add_argument("--domain", action="append", choices=["requirements", "backend", "frontend", "roadmap"])
+
+    fingerprint = subparsers.add_parser("fingerprint", help="Detect the current project's likely frameworks.")
+    fingerprint.add_argument("--project-root", default=".")
+
+    mapping = subparsers.add_parser("map", help="Build a simple import relationship map for the project.")
+    mapping.add_argument("--project-root", default=".")
+
+    analyze = subparsers.add_parser("analyze", help="Assemble framework, signal, and relationship analysis for the project.")
+    analyze.add_argument("--project-root", default=".")
+    analyze.add_argument("--requirements")
+
+    intent = subparsers.add_parser("intent", help="Parse a requirements file into a structured project intent.")
+    intent.add_argument("--requirements", required=True)
+    features = subparsers.add_parser("features", help="Extract a feature inventory from requirements and project context.")
+    features.add_argument("--requirements")
+    features.add_argument("--project-root", default=".")
+    plan = subparsers.add_parser("plan", help="Build a roadmap plan from requirements and model config.")
+    plan.add_argument("--requirements")
+    plan.add_argument("--project-root", default=".")
+
+    status = subparsers.add_parser("status", help="Show the current generated output status for a project root.")
+    status.add_argument("--project-root", default=".")
+
+    report = subparsers.add_parser("report", help="Show a summary report for a project root.")
+    report.add_argument("--project-root", default=".")
+
+    validate = subparsers.add_parser("validate", help="Validate generated outputs and skill references.")
+    validate.add_argument("--project-root", default=".")
+
+    serve = subparsers.add_parser("serve", help="Run the HTTP API server.")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.command == "init":
+        project_root = Path(args.project_root).resolve()
+        project_root.mkdir(parents=True, exist_ok=True)
+        config_path = project_root / "skilgen.yml"
+        if not config_path.exists():
+            config_path.write_text(render_default_config(), encoding="utf-8")
+        print(json.dumps({"config_path": str(config_path)}, indent=2))
+        return
+    if args.command == "fingerprint":
+        result = fingerprint_project(Path(args.project_root).resolve())
+        print(
+            json.dumps(
+                {
+                    "frontend": result.frontend.__dict__ if result.frontend else None,
+                    "backend": result.backend.__dict__ if result.backend else None,
+                    "test_framework": result.test_framework.__dict__ if result.test_framework else None,
+                    "build_tool": result.build_tool.__dict__ if result.build_tool else None,
+                },
+                indent=2,
+            )
+        )
+        return
+    if args.command == "map":
+        print(json.dumps({"import_graph": build_import_graph(Path(args.project_root).resolve())}, indent=2))
+        return
+    if args.command == "analyze":
+        print(json.dumps(analyze_payload(Path(args.project_root).resolve(), Path(args.requirements).resolve() if args.requirements else None), indent=2))
+        return
+    if args.command == "intent":
+        result = parse_requirements_file(Path(args.requirements).resolve())
+        print(
+            json.dumps(
+                {
+                    "features": result.features,
+                    "domain_concepts": result.domain_concepts,
+                    "entities": result.entities,
+                    "endpoints": result.endpoints,
+                    "ui_flows": result.ui_flows,
+                },
+                indent=2,
+            )
+        )
+        return
+    if args.command == "features":
+        emit_progress(
+            f"Starting feature synthesis with the {current_runtime_mode()} runtime. Skilgen is reading the project context to identify the capabilities that matter."
+        )
+        emit_progress("Reading the codebase and optional requirements to identify product capabilities.")
+        requirements = Path(args.requirements).resolve() if args.requirements else None
+        features = extract_features(requirements, Path(args.project_root).resolve())
+        emit_progress("Grouping detected backend, frontend, and planning signals into a reusable feature inventory.")
+        print(json.dumps({"features": [feature.__dict__ for feature in features]}, indent=2))
+        return
+    if args.command == "plan":
+        emit_progress(
+            f"Starting roadmap planning with the {current_runtime_mode()} runtime. Skilgen is turning project context into a staged implementation plan."
+        )
+        emit_progress("Reading project scope and available inputs for roadmap planning.")
+        config = load_config(Path(args.project_root).resolve())
+        plan = build_roadmap_plan(
+            config,
+            parse_project_intent(Path(args.project_root).resolve(), Path(args.requirements).resolve() if args.requirements else None),
+        )
+        emit_progress("Synthesizing implementation phases and sequencing the next delivery steps.")
+        print(
+            json.dumps(
+                {
+                    "model": plan.model.__dict__,
+                    "steps": [step.__dict__ for step in plan.steps],
+                },
+                indent=2,
+            )
+        )
+        return
+    if args.command == "status":
+        print(json.dumps(status_payload(Path(args.project_root).resolve()), indent=2))
+        return
+    if args.command == "report":
+        print(json.dumps(report_payload(Path(args.project_root).resolve()), indent=2))
+        return
+    if args.command == "validate":
+        print(json.dumps(validate_payload(Path(args.project_root).resolve()), indent=2))
+        return
+    if args.command == "serve":
+        run_server(args.host, args.port)
+        return
+
+    targets = ("docs", "skills") if getattr(args, "target", "all") == "all" else (args.target,)
+    domains = tuple(getattr(args, "domain", None) or [])
+
+    if args.command == "preview":
+        print(
+            json.dumps(
+                preview_payload(
+                    Path(args.requirements).resolve() if args.requirements else None,
+                    Path(args.project_root),
+                    targets=targets,
+                    domains=domains,
+                ),
+                indent=2,
+            )
+        )
+        return
+
+    if args.command == "watch":
+        emit_progress(
+            f"Starting watch mode with the {current_runtime_mode()} runtime. Skilgen will explain each refresh as changes are detected."
+        )
+        runs = watch_delivery(
+            Path(args.requirements).resolve() if args.requirements else None,
+            Path(args.project_root),
+            targets=targets,
+            domains=domains,
+            interval_seconds=args.interval,
+            cycles=args.cycles,
+            once=args.once,
+            progress_callback=emit_progress,
+        )
+        print(json.dumps({"runtime": current_runtime_mode(), "runs": [[str(path) for path in generated] for generated in runs]}, indent=2))
+        return
+
+    emit_progress(
+        f"Starting delivery with the {current_runtime_mode()} runtime. This may take a bit while Skilgen builds project context and generates the final skill tree."
+    )
+    generated = run_delivery(
+        Path(args.requirements).resolve() if args.requirements else None,
+        Path(args.project_root),
+        targets=targets,
+        domains=domains,
+        dry_run=args.dry_run,
+        progress_callback=emit_progress,
+    )
+    print(json.dumps({"runtime": current_runtime_mode(), "generated_files": [str(path) for path in generated]}, indent=2))
+
+
+def console_main() -> None:
+    main()
+
+
+if __name__ == "__main__":
+    console_main()
