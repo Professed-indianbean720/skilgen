@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from skilgen.deep_agents_core import run_deep_json
 from skilgen.agents.model_registry import resolve_model_settings
 from skilgen.core.models import PlanStep, ProjectIntent, RoadmapPlan, SkilgenConfig
@@ -54,14 +56,18 @@ def build_roadmap_plan_native(config: SkilgenConfig, intent: ProjectIntent) -> R
     return RoadmapPlan(model=model, steps=steps)
 
 
-def build_roadmap_plan(config: SkilgenConfig, intent: ProjectIntent) -> RoadmapPlan:
+def build_roadmap_plan(config: SkilgenConfig, intent: ProjectIntent, project_root: Path | str = ".") -> RoadmapPlan:
     native_plan = build_roadmap_plan_native(config, intent)
+    root = Path(project_root).resolve()
     payload = run_deep_json(
         "roadmap planning",
         (
-            "Build a phase-based implementation roadmap for Skilgen and return JSON with keys "
-            "model and steps. model should include provider, model, api_key_env, api_key_present. "
-            "steps should be a list of objects with phase, title, description, status.\n\n"
+            "Build a phase-based implementation roadmap for Skilgen. Return JSON with keys model and steps. "
+            "model should include provider, model, api_key_env, api_key_present. steps should be a list of "
+            "objects with phase, title, description, status. Optimize for execution order, dependency awareness, "
+            "and clear agent handoff. Prefer phases that break the work into coherent capability slices rather than "
+            "generic milestones. When endpoints or UI flows exist, reflect them in roadmap steps that strengthen "
+            "coverage, validation, and skill generation quality.\n\n"
             f"Intent features: {intent.features}\n"
             f"Intent domain_concepts: {intent.domain_concepts}\n"
             f"Intent entities: {intent.entities}\n"
@@ -72,6 +78,7 @@ def build_roadmap_plan(config: SkilgenConfig, intent: ProjectIntent) -> RoadmapP
             "model": native_plan.model.__dict__,
             "steps": [step.__dict__ for step in native_plan.steps],
         },
+        project_root=root,
     )
     steps = [
         PlanStep(

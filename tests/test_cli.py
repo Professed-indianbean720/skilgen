@@ -16,7 +16,34 @@ class CliTests(unittest.TestCase):
                 check=True,
             )
             payload = json.loads(result.stdout)
-            self.assertTrue(Path(payload["config_path"]).exists())
+            config_path = Path(payload["config_path"])
+            self.assertTrue(config_path.exists())
+            config_text = config_path.read_text(encoding="utf-8")
+            self.assertIn("model_provider:", config_text)
+            self.assertNotIn("model_provider: openai", config_text)
+
+    def test_init_can_scaffold_provider_specific_defaults(self) -> None:
+        with TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "skilgen.cli.main",
+                    "init",
+                    "--project-root",
+                    tmp,
+                    "--provider",
+                    "anthropic",
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            config_text = Path(payload["config_path"]).read_text(encoding="utf-8")
+            self.assertIn("model_provider: anthropic", config_text)
+            self.assertIn("model: claude-sonnet-4-5", config_text)
+            self.assertIn("api_key_env: ANTHROPIC_API_KEY", config_text)
 
     def test_version_outputs_package_version(self) -> None:
         result = subprocess.run(
@@ -25,7 +52,7 @@ class CliTests(unittest.TestCase):
             capture_output=True,
             check=True,
         )
-        self.assertIn("0.1.0", result.stdout)
+        self.assertIn("0.2.0", result.stdout)
 
     def test_analyze_outputs_signal_payload(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -211,6 +238,28 @@ class CliTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertTrue(payload["generated_files"])
             self.assertTrue((root / "FEATURES.md").exists())
+
+    def test_doctor_outputs_runtime_diagnostics(self) -> None:
+        with TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "skilgen.cli.main",
+                    "doctor",
+                    "--project-root",
+                    tmp,
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            payload = json.loads(result.stdout)
+            self.assertIn("runtime", payload)
+            self.assertIn("recommendations", payload)
+            self.assertIn("api_key_env", payload)
+            self.assertIn("retry_attempts", payload)
+            self.assertIn("retry_base_delay_seconds", payload)
 
 
 if __name__ == "__main__":

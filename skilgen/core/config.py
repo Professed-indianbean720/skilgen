@@ -17,7 +17,21 @@ DEFAULT_CONFIG = SkilgenConfig(
     api_key_env="OPENAI_API_KEY",
     model_temperature=None,
     model_max_tokens=None,
+    model_retry_attempts=3,
+    model_retry_base_delay_seconds=1.0,
 )
+
+
+PROVIDER_DEFAULTS: dict[str, tuple[str, str]] = {
+    "openai": ("gpt-4.1-mini", "OPENAI_API_KEY"),
+    "anthropic": ("claude-sonnet-4-5", "ANTHROPIC_API_KEY"),
+    "gemini": ("gemini-2.5-pro", "GOOGLE_API_KEY"),
+    "google": ("gemini-2.5-pro", "GOOGLE_API_KEY"),
+    "google_genai": ("gemini-2.5-pro", "GOOGLE_API_KEY"),
+    "huggingface": ("meta-llama/Llama-3.1-70B-Instruct", "HUGGINGFACEHUB_API_TOKEN"),
+    "hugging_face": ("meta-llama/Llama-3.1-70B-Instruct", "HUGGINGFACEHUB_API_TOKEN"),
+    "hf": ("meta-llama/Llama-3.1-70B-Instruct", "HUGGINGFACEHUB_API_TOKEN"),
+}
 
 
 def _parse_scalar(raw: str) -> str | int | float | bool | None:
@@ -57,6 +71,8 @@ def load_config(project_root: Path) -> SkilgenConfig:
         "api_key_env": DEFAULT_CONFIG.api_key_env,
         "model_temperature": DEFAULT_CONFIG.model_temperature,
         "model_max_tokens": DEFAULT_CONFIG.model_max_tokens,
+        "model_retry_attempts": DEFAULT_CONFIG.model_retry_attempts,
+        "model_retry_base_delay_seconds": DEFAULT_CONFIG.model_retry_base_delay_seconds,
     }
     current_list: str | None = None
 
@@ -95,11 +111,27 @@ def load_config(project_root: Path) -> SkilgenConfig:
         api_key_env=data.get("api_key_env") if isinstance(data.get("api_key_env"), str) or data.get("api_key_env") is None else None,
         model_temperature=float(data.get("model_temperature")) if isinstance(data.get("model_temperature"), (float, int)) else None,
         model_max_tokens=int(data.get("model_max_tokens")) if isinstance(data.get("model_max_tokens"), int) else None,
+        model_retry_attempts=int(data.get("model_retry_attempts", DEFAULT_CONFIG.model_retry_attempts)),
+        model_retry_base_delay_seconds=float(data.get("model_retry_base_delay_seconds", DEFAULT_CONFIG.model_retry_base_delay_seconds)),
     )
 
 
-def render_default_config() -> str:
-    return """# Skilgen configuration
+def render_default_config(provider: str | None = None) -> str:
+    provider_key = provider.strip().lower() if provider else None
+    model = ""
+    api_key_env = ""
+    if provider_key in PROVIDER_DEFAULTS:
+        model, api_key_env = PROVIDER_DEFAULTS[provider_key]
+
+    provider_comment = (
+        "# Set these to your preferred provider. For example:\n"
+        "# openai / gpt-4.1-mini / OPENAI_API_KEY\n"
+        "# anthropic / claude-sonnet-4-5 / ANTHROPIC_API_KEY\n"
+        "# gemini / gemini-2.5-pro / GOOGLE_API_KEY\n"
+        "# huggingface / meta-llama/Llama-3.1-70B-Instruct / HUGGINGFACEHUB_API_TOKEN\n"
+    )
+
+    return f"""# Skilgen configuration
 include_paths:
   - .
 exclude_paths:
@@ -111,9 +143,11 @@ domains_override:
 skill_depth: 2
 update_trigger: manual
 langsmith_project:
-model_provider: openai
-model: gpt-4.1-mini
-api_key_env: OPENAI_API_KEY
+{provider_comment}model_provider: {provider_key or ""}
+model: {model}
+api_key_env: {api_key_env}
 model_temperature:
 model_max_tokens:
+model_retry_attempts: 3
+model_retry_base_delay_seconds: 1.0
 """

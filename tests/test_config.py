@@ -2,10 +2,22 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from skilgen.core.config import load_config
+from skilgen.core.config import load_config, render_default_config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_render_default_config_is_provider_neutral(self) -> None:
+        rendered = render_default_config()
+        self.assertIn("model_provider:", rendered)
+        self.assertNotIn("model_provider: openai", rendered)
+        self.assertIn("# openai / gpt-4.1-mini / OPENAI_API_KEY", rendered)
+
+    def test_render_default_config_can_scaffold_provider_defaults(self) -> None:
+        rendered = render_default_config("gemini")
+        self.assertIn("model_provider: gemini", rendered)
+        self.assertIn("model: gemini-2.5-pro", rendered)
+        self.assertIn("api_key_env: GOOGLE_API_KEY", rendered)
+
     def test_load_config_reads_lists_and_scalars(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -26,6 +38,8 @@ class ConfigTests(unittest.TestCase):
                         "api_key_env: CUSTOM_OPENAI_KEY",
                         "model_temperature: 0.2",
                         "model_max_tokens: 2048",
+                        "model_retry_attempts: 5",
+                        "model_retry_base_delay_seconds: 2.5",
                     ]
                 ),
                 encoding="utf-8",
@@ -42,6 +56,8 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(config.api_key_env, "CUSTOM_OPENAI_KEY")
             self.assertEqual(config.model_temperature, 0.2)
             self.assertEqual(config.model_max_tokens, 2048)
+            self.assertEqual(config.model_retry_attempts, 5)
+            self.assertEqual(config.model_retry_base_delay_seconds, 2.5)
 
 
 if __name__ == "__main__":

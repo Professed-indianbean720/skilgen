@@ -9,6 +9,13 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/skilgen/"><img src="https://img.shields.io/pypi/v/skilgen" alt="PyPI version" /></a>
+  <a href="https://pypi.org/project/skilgen/"><img src="https://img.shields.io/pypi/pyversions/skilgen" alt="Python versions" /></a>
+  <a href="https://github.com/skilgen/skilgen/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/skilgen/skilgen/ci.yml?branch=main" alt="CI status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license" /></a>
+</p>
+
+<p align="center">
   Let AI work for you: Skilgen uncovers the deep nuances of your codebase, identifies the strongest implementation patterns, and materializes the right <code>skills/</code> so coding agents can make better decisions from the start.
 </p>
 
@@ -51,24 +58,31 @@ From those inputs, Skilgen synthesizes:
 - backend endpoints and service areas
 - frontend flows and component zones
 - roadmap phases
+- dynamic domain graphs inferred from the real repo
+- freshness signals for when skills should refresh
+- in-flight run memory for agent continuity
 - reusable skill guidance for agents
 
 ## What You Get
 
 Generated outputs can include:
+- `AGENTS.md`
+- `ANALYSIS.md`
 - `FEATURES.md`
 - `REPORT.md`
 - `TRACEABILITY.md`
 - `skills/MANIFEST.md`
-- `skills/requirements/SKILL.md`
-- `skills/backend/**`
-- `skills/frontend/**`
-- `skills/roadmap/**`
+- `skills/GRAPH.md`
+- dynamic top-level and child `skills/**`
+- `.skilgen/state/freshness.json`
+- `.skilgen/memory/current_run.json`
+- `.skilgen/memory/runs/<run_id>.json`
 
 This gives your agents:
 - a stable memory layer
 - reusable execution guidance
 - project-specific context instead of generic prompting
+- refresh decisions grounded in actual repo change signals
 - a better path toward consistent, high-quality, engineering-standard delivery
 
 ## Quick Start
@@ -87,7 +101,7 @@ python -m pip install skilgen
 
 Requirements:
 - Python 3.11+
-- The full model-backed runtime requires Python 3.11+
+- The model-backed runtime requires Python 3.11+
 
 Runtime behavior:
 - If you configure a supported model provider and API key, Skilgen uses the full model-backed runtime.
@@ -100,10 +114,33 @@ Initialize config in your repo:
 skilgen init --project-root .
 ```
 
+`skilgen init` now writes a provider-neutral `skilgen.yml` by default, so it does not assume OpenAI unless you explicitly want that.
+
+If you want provider-specific starter values:
+
+```bash
+skilgen init --project-root . --provider openai
+skilgen init --project-root . --provider anthropic
+skilgen init --project-root . --provider gemini
+skilgen init --project-root . --provider huggingface
+```
+
 Analyze a codebase:
 
 ```bash
 skilgen fingerprint --project-root .
+```
+
+Diagnose runtime readiness:
+
+```bash
+skilgen doctor --project-root .
+```
+
+Decide whether skills should refresh and what an agent should load first:
+
+```bash
+skilgen decide --project-root .
 ```
 
 Generate docs and skills from just the codebase:
@@ -158,6 +195,11 @@ API example:
 {
   "api_version": "1.0",
   "runtime": "model_backed",
+  "runtime_diagnostics": {
+    "provider": "openai",
+    "model": "gpt-4.1-mini",
+    "api_key_present": true
+  },
   "events": [
     {"message": "Reading your codebase and requirements and loading the Skilgen project configuration."},
     {"message": "Building project context so agents can understand the repo structure and delivery scope."},
@@ -195,10 +237,12 @@ Roadmap planning example:
 ## Core Commands
 
 - `skilgen init` writes a default `skilgen.yml`
+- `skilgen doctor` explains runtime readiness, provider setup, and missing credentials
 - `skilgen fingerprint` detects the likely stack of the current codebase
 - `skilgen intent` interprets a requirements document into structured intent
 - `skilgen features` builds a feature inventory from a codebase, requirements, or both
 - `skilgen plan` generates a roadmap view from a codebase, requirements, or both
+- `skilgen decide` tells agents whether to refresh skills, which domains to prioritize, and which memory files to load
 - `skilgen scan` generates docs and skills from the codebase and optionally a requirements file
 - `skilgen deliver` runs the main generation flow with or without a requirements file
 
@@ -206,29 +250,33 @@ Roadmap planning example:
 
 ```text
 .
+├── AGENTS.md
+├── ANALYSIS.md
 ├── FEATURES.md
 ├── REPORT.md
 ├── TRACEABILITY.md
+├── .skilgen
+│   ├── state
+│   │   └── freshness.json
+│   └── memory
+│       ├── current_run.json
+│       └── runs
+│           └── <run_id>.json
 ├── skilgen.yml
 └── skills
     ├── MANIFEST.md
+    ├── GRAPH.md
     ├── requirements
-    │   ├── SKILL.md
-    │   └── SUMMARY.md
-    ├── backend
-    │   ├── SKILL.md
-    │   ├── api
-    │   │   └── SKILL.md
-    │   └── testing
-    │       └── SKILL.md
-    ├── frontend
-    │   ├── SKILL.md
-    │   └── components
-    │       └── SKILL.md
-    └── roadmap
-        ├── SKILL.md
-        └── phase-*/
+    ├── roadmap
+    ├── ...dynamically generated domain families
+    └── ...additional inferred child skills
 ```
+
+## First-Class Examples
+
+- `examples/codebase-only/README.md`: minimal repo scan without a requirements document
+- `examples/requirements-only/README.md`: requirements-driven generation from a spec alone
+- `examples/codebase-and-requirements/README.md`: combined high-fidelity generation flow
 
 ## Model Configuration
 
@@ -246,11 +294,18 @@ domains_override:
 skill_depth: 2
 update_trigger: manual
 langsmith_project:
-model_provider: openai
-model: gpt-4.1-mini
-api_key_env: OPENAI_API_KEY
+# Set these to your preferred provider. For example:
+# openai / gpt-4.1-mini / OPENAI_API_KEY
+# anthropic / claude-sonnet-4-5 / ANTHROPIC_API_KEY
+# gemini / gemini-2.5-pro / GOOGLE_API_KEY
+# huggingface / meta-llama/Llama-3.1-70B-Instruct / HUGGINGFACEHUB_API_TOKEN
+model_provider:
+model:
+api_key_env:
 model_temperature:
 model_max_tokens:
+model_retry_attempts: 3
+model_retry_base_delay_seconds: 1.0
 ```
 
 Supported `model_provider` values:
@@ -271,8 +326,10 @@ Default API key environment mapping:
 
 Important:
 - Without a valid provider API key, Skilgen will not use LLMs.
-- In that case, it runs in native fallback mode for analysis and generation.
+- In that case, it runs in local fallback mode for analysis and generation.
 - Local fallback mode is faster, but it does not have the same reasoning depth or synthesis quality as the full model-backed path.
+- Skilgen retries transient provider failures such as rate limits, timeouts, and temporary upstream outages.
+- Use `model_retry_attempts` and `model_retry_base_delay_seconds` when you want to tune model-backed resilience.
 
 Example Anthropic config:
 
@@ -304,14 +361,16 @@ api_key_env: HUGGINGFACEHUB_API_TOKEN
 
 1. Read the codebase, the requirements source, or both.
 2. Interpret product intent and implementation shape.
-3. Build feature, roadmap, and domain guidance.
-4. Generate project docs.
-5. Materialize a reusable `skills/` tree agents can use immediately.
+3. Infer a dynamic domain graph and choose the right skill topology.
+4. Build feature, roadmap, traceability, and agent guidance.
+5. Persist freshness state and in-flight run memory.
+6. Generate project docs and materialize a reusable `skills/` tree.
 
 That means the same repo can become:
 - planning context for humans
 - execution guidance for agents
 - a project memory layer that evolves with the codebase
+- a freshness-aware system that knows when skills should be refreshed
 - a quality layer that helps agents choose stronger patterns and produce better code
 
 ## Best For
@@ -326,7 +385,20 @@ That means the same repo can become:
 
 - OpenAI has been tested live in this repo
 - Anthropic, Gemini, and Hugging Face are wired through config and dependencies
+- provider-aware error handling is built in for auth failures, rate limits, missing models, and transient upstream issues
 - use `--project-root` to point Skilgen at any codebase
 - `--requirements` is optional for `features`, `plan`, `scan`, and `deliver`
+- `decide` uses freshness, run memory, and the inferred domain graph to guide the next agent step
+- skill families can now expand beyond the original fixed seed taxonomy when the repo structure demands it
 - replace `docs/product-requirements.docx` with your own requirements path when you want requirements-aware generation
+- Skilgen now persists `.skilgen/state/` and `.skilgen/memory/` to support selective refresh and continuity
+- run `skilgen doctor --project-root .` when you want to verify provider setup before a model-backed run
 - for full model-backed quality, set a supported provider API key before running Skilgen
+
+## Contributing
+
+- Open a bug report or feature request with the issue templates in `.github/ISSUE_TEMPLATE/`
+- Use pull requests for all changes to `main`
+- Run `python -m unittest discover -s tests` before opening a PR
+- If backend behavior changes, test every affected endpoint on both happy and failure paths
+- See `CHANGELOG.md` for release history and upcoming release notes

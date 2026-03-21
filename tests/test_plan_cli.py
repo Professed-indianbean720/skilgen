@@ -1,7 +1,7 @@
 import json
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -12,13 +12,7 @@ class PlanCliTests(unittest.TestCase):
             root = Path(tmp)
             requirements = root / "requirements.md"
             requirements.write_text(
-                "\n".join(
-                    [
-                        "Feature: Skill generation",
-                        "Backend API endpoint for project analysis",
-                        "Frontend dashboard flow for repository review",
-                    ]
-                ),
+                "# Product Requirements\n\n- Add a backend scan endpoint\n- Add a dashboard UI flow\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
