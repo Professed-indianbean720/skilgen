@@ -76,6 +76,12 @@ class SkilgenConfig:
     model_max_tokens: int | None = None
     model_retry_attempts: int = 3
     model_retry_base_delay_seconds: float = 1.0
+    auto_install_external_skills: bool = True
+    external_skills_allowed_trust_levels: list[str] = field(default_factory=list)
+    external_skills_allowlist: list[str] = field(default_factory=list)
+    external_skills_denylist: list[str] = field(default_factory=list)
+    external_skills_auto_activate: bool = True
+    external_skills_policy_mode: str = "permissive"
 
 
 @dataclass(frozen=True)

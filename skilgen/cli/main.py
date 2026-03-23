@@ -13,6 +13,24 @@ from skilgen.agents.requirements_parser import parse_project_intent, parse_requi
 from skilgen.deep_agents_core import current_runtime_mode, runtime_diagnostics
 from skilgen.delivery import run_delivery, watch_delivery
 from skilgen.core.config import load_config, render_default_config
+from skilgen.external_skills import (
+    activate_external_skill,
+    active_external_skills,
+    detect_external_skill_sources,
+    external_skill_lock,
+    external_skill_policy,
+    deactivate_external_skill,
+    export_external_skill_lock,
+    get_external_skill,
+    import_external_skill_candidates,
+    import_external_skill_lock,
+    install_external_skill,
+    list_external_skills,
+    ranked_external_skills,
+    remove_external_skill,
+    sync_all_external_skills,
+    sync_external_skill,
+)
 
 
 def emit_progress(message: str) -> None:
@@ -82,6 +100,74 @@ def build_parser() -> argparse.ArgumentParser:
     decide.add_argument("--project-root", default=".")
     decide.add_argument("--requirements")
 
+    skills = subparsers.add_parser("skills", help="Discover and install external skill collections through Skilgen.")
+    skills_subparsers = skills.add_subparsers(dest="skills_command", required=True)
+
+    skills_list = skills_subparsers.add_parser("list", help="List curated external skill sources available through Skilgen.")
+    skills_list.add_argument("--project-root", default=".")
+    skills_list.add_argument("--ecosystem")
+    skills_list.add_argument("--search")
+
+    skills_show = skills_subparsers.add_parser("show", help="Show details for a curated external skill source.")
+    skills_show.add_argument("slug")
+    skills_show.add_argument("--project-root", default=".")
+
+    skills_detect = skills_subparsers.add_parser("detect", help="Detect external skill ecosystems that match the current repository.")
+    skills_detect.add_argument("--project-root", default=".")
+
+    skills_active = skills_subparsers.add_parser("active", help="List the currently active external skill packs for this project.")
+    skills_active.add_argument("--project-root", default=".")
+
+    skills_lock = skills_subparsers.add_parser("lock", help="Show the resolved external-skills lockfile for this project.")
+    skills_lock.add_argument("--project-root", default=".")
+
+    skills_lock_export = skills_subparsers.add_parser("lock-export", help="Export the resolved external-skills lockfile for reuse in another repo.")
+    skills_lock_export.add_argument("--project-root", default=".")
+    skills_lock_export.add_argument("--output-path")
+
+    skills_lock_import = skills_subparsers.add_parser("lock-import", help="Import an exported external-skills lockfile into this project.")
+    skills_lock_import.add_argument("--project-root", default=".")
+    skills_lock_import.add_argument("--input-path", required=True)
+    skills_lock_import.add_argument("--sync-existing", action="store_true")
+
+    skills_policy = skills_subparsers.add_parser("policy", help="Show the external-skills policy currently applied to this project.")
+    skills_policy.add_argument("--project-root", default=".")
+
+    skills_rank = skills_subparsers.add_parser("rank", help="Rank active external skill packs by trust and relevance for the current project.")
+    skills_rank.add_argument("--project-root", default=".")
+
+    skills_install = skills_subparsers.add_parser("install", help="Install a curated or custom external skill source into the local project.")
+    skills_install.add_argument("slug", nargs="?")
+    skills_install.add_argument("--git-url")
+    skills_install.add_argument("--name")
+    skills_install.add_argument("--project-root", default=".")
+    skills_install.add_argument("--force", action="store_true")
+    skills_install.add_argument("--ref")
+    skills_install.add_argument("--activate", action=argparse.BooleanOptionalAction, default=None)
+
+    skills_import = skills_subparsers.add_parser("import", help="Import downstream repos from an installed directory-style external skill source.")
+    skills_import.add_argument("slug")
+    skills_import.add_argument("--project-root", default=".")
+    skills_import.add_argument("--limit", type=int, default=5)
+    skills_import.add_argument("--activate", action=argparse.BooleanOptionalAction, default=None)
+
+    skills_sync = skills_subparsers.add_parser("sync", help="Sync an installed external skill source with its upstream repository.")
+    skills_sync.add_argument("slug", nargs="?")
+    skills_sync.add_argument("--project-root", default=".")
+    skills_sync.add_argument("--all", action="store_true")
+
+    skills_remove = skills_subparsers.add_parser("remove", help="Remove an installed external skill source from the local project.")
+    skills_remove.add_argument("slug")
+    skills_remove.add_argument("--project-root", default=".")
+
+    skills_activate = skills_subparsers.add_parser("activate", help="Mark an installed external skill source as active for agent loading.")
+    skills_activate.add_argument("slug")
+    skills_activate.add_argument("--project-root", default=".")
+
+    skills_deactivate = skills_subparsers.add_parser("deactivate", help="Mark an installed external skill source as inactive for agent loading.")
+    skills_deactivate.add_argument("slug")
+    skills_deactivate.add_argument("--project-root", default=".")
+
     intent = subparsers.add_parser("intent", help="Parse a requirements file into a structured project intent.")
     intent.add_argument("--requirements", required=True)
     features = subparsers.add_parser("features", help="Extract a feature inventory from requirements and project context.")
@@ -147,6 +233,87 @@ def main() -> None:
         )
         print(json.dumps(decision_payload(root, Path(args.requirements).resolve() if args.requirements else None), indent=2))
         return
+    if args.command == "skills":
+        root = Path(args.project_root).resolve()
+        if args.skills_command == "list":
+            emit_progress("Loading the curated Skilgen skills catalog across supported ecosystems.")
+            print(json.dumps(list_external_skills(root, ecosystem=args.ecosystem, search=args.search), indent=2))
+            return
+        if args.skills_command == "show":
+            emit_progress(f"Loading details for the external skill source '{args.slug}'.")
+            print(json.dumps({"skill": get_external_skill(args.slug, root)}, indent=2))
+            return
+        if args.skills_command == "detect":
+            emit_progress("Scanning the repository for supported external skill ecosystems.")
+            print(json.dumps(detect_external_skill_sources(root), indent=2))
+            return
+        if args.skills_command == "active":
+            emit_progress("Listing the currently active external skill packs for this project.")
+            print(json.dumps({"skills": active_external_skills(root)}, indent=2))
+            return
+        if args.skills_command == "lock":
+            emit_progress("Loading the resolved external-skills lockfile.")
+            print(json.dumps(external_skill_lock(root), indent=2))
+            return
+        if args.skills_command == "lock-export":
+            emit_progress("Exporting the resolved external-skills lockfile for reuse in another project.")
+            print(json.dumps(export_external_skill_lock(project_root=root, output_path=args.output_path), indent=2))
+            return
+        if args.skills_command == "lock-import":
+            emit_progress("Importing external skills from an exported lockfile into this project.")
+            print(json.dumps(import_external_skill_lock(project_root=root, input_path=args.input_path, sync_existing=args.sync_existing), indent=2))
+            return
+        if args.skills_command == "policy":
+            emit_progress("Loading the external-skills policy for this project.")
+            print(json.dumps(external_skill_policy(root), indent=2))
+            return
+        if args.skills_command == "rank":
+            emit_progress("Ranking active external skill packs by trust, detection signals, and repo fit.")
+            print(json.dumps(ranked_external_skills(root), indent=2))
+            return
+        if args.skills_command == "install":
+            emit_progress("Installing the external skill source into .skilgen/external-skills so it can be managed through Skilgen.")
+            print(
+                json.dumps(
+                    {
+                        "installed_skill": install_external_skill(
+                            project_root=root,
+                            slug=args.slug,
+                            git_url=args.git_url,
+                            name=args.name,
+                            force=args.force,
+                            ref=args.ref,
+                            active=args.activate,
+                        )
+                    },
+                    indent=2,
+                )
+            )
+            return
+        if args.skills_command == "import":
+            emit_progress("Importing downstream repositories from the selected directory-style skill source.")
+            print(json.dumps(import_external_skill_candidates(project_root=root, slug=args.slug, limit=args.limit, active=args.activate), indent=2))
+            return
+        if args.skills_command == "sync":
+            if args.all:
+                emit_progress("Syncing all installed external skill sources with their upstream repositories.")
+                print(json.dumps(sync_all_external_skills(project_root=root), indent=2))
+            else:
+                emit_progress(f"Syncing the external skill source '{args.slug}' with its upstream repository.")
+                print(json.dumps({"synced_skill": sync_external_skill(project_root=root, slug=args.slug)}, indent=2))
+            return
+        if args.skills_command == "remove":
+            emit_progress(f"Removing the external skill source '{args.slug}' from the local Skilgen registry.")
+            print(json.dumps({"removed_skill": remove_external_skill(project_root=root, slug=args.slug)}, indent=2))
+            return
+        if args.skills_command == "activate":
+            emit_progress(f"Activating the external skill source '{args.slug}' for agent loading.")
+            print(json.dumps({"activated_skill": activate_external_skill(project_root=root, slug=args.slug)}, indent=2))
+            return
+        if args.skills_command == "deactivate":
+            emit_progress(f"Deactivating the external skill source '{args.slug}' for agent loading.")
+            print(json.dumps({"deactivated_skill": deactivate_external_skill(project_root=root, slug=args.slug)}, indent=2))
+            return
     if args.command == "intent":
         result = parse_requirements_file(Path(args.requirements).resolve())
         print(

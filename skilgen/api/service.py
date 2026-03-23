@@ -24,6 +24,25 @@ from skilgen.core.freshness import compute_freshness_report, load_freshness_stat
 from skilgen.core.context import build_codebase_context
 from skilgen.core.requirements import load_project_context
 from skilgen.core.run_memory import load_current_run_memory
+from skilgen.external_skills import (
+    activate_external_skill,
+    active_external_skills,
+    deactivate_external_skill,
+    detect_external_skill_sources,
+    external_skill_lock,
+    external_skill_policy,
+    export_external_skill_lock,
+    get_external_skill,
+    import_external_skill_candidates,
+    import_external_skill_lock,
+    install_external_skill,
+    installed_external_skills,
+    list_external_skills,
+    ranked_external_skills,
+    remove_external_skill,
+    sync_all_external_skills,
+    sync_external_skill,
+)
 
 
 API_VERSION = "1.0"
@@ -244,6 +263,7 @@ def status_payload(project_root: str | Path) -> dict[str, object]:
     codebase_context = build_codebase_context(root, requirements_context)
     freshness = compute_freshness_report(root, requirements_context, codebase_context.domain_graph, load_freshness_state(root))
     current_run = load_current_run_memory(root)
+    external_skill_detection = detect_external_skill_sources(root)
     return _with_api_meta(
         {
             **runtime.run(
@@ -254,8 +274,106 @@ def status_payload(project_root: str | Path) -> dict[str, object]:
             "freshness": freshness.__dict__,
             "current_run_memory": current_run.__dict__ if current_run is not None else None,
             "agent_decision": build_agent_decision(root, requirements_context, codebase_context.domain_graph, codebase_context.skill_tree).__dict__,
+            "installed_external_skills": installed_external_skills(root),
+            "active_external_skills": active_external_skills(root),
+            "ranked_external_skills": ranked_external_skills(root),
+            "external_skill_lock": external_skill_lock(root),
+            "external_skill_policy": external_skill_policy(root),
+            "external_skill_recommendations": external_skill_detection["manual_recommendations"],
         }
     )
+
+
+def skills_list_payload(project_root: str | Path, ecosystem: str | None = None, search: str | None = None) -> dict[str, object]:
+    return _with_api_meta(list_external_skills(Path(project_root).resolve(), ecosystem=ecosystem, search=search))
+
+
+def skills_detect_payload(project_root: str | Path) -> dict[str, object]:
+    return _with_api_meta(detect_external_skill_sources(Path(project_root).resolve()))
+
+
+def skills_active_payload(project_root: str | Path) -> dict[str, object]:
+    return _with_api_meta({"skills": active_external_skills(Path(project_root).resolve())})
+
+
+def skills_lock_payload(project_root: str | Path) -> dict[str, object]:
+    return _with_api_meta(external_skill_lock(Path(project_root).resolve()))
+
+
+def skills_lock_export_payload(project_root: str | Path, output_path: str | Path | None = None) -> dict[str, object]:
+    return _with_api_meta(export_external_skill_lock(project_root=Path(project_root).resolve(), output_path=output_path))
+
+
+def skills_lock_import_payload(project_root: str | Path, input_path: str | Path, *, sync_existing: bool = False) -> dict[str, object]:
+    return _with_api_meta(import_external_skill_lock(project_root=Path(project_root).resolve(), input_path=input_path, sync_existing=sync_existing))
+
+
+def skills_rank_payload(project_root: str | Path) -> dict[str, object]:
+    return _with_api_meta(ranked_external_skills(Path(project_root).resolve()))
+
+
+def skills_policy_payload(project_root: str | Path) -> dict[str, object]:
+    return _with_api_meta(external_skill_policy(Path(project_root).resolve()))
+
+
+def skills_show_payload(slug: str, project_root: str | Path) -> dict[str, object]:
+    return _with_api_meta({"skill": get_external_skill(slug, Path(project_root).resolve())})
+
+
+def skills_install_payload(
+    project_root: str | Path,
+    *,
+    slug: str | None = None,
+    git_url: str | None = None,
+    name: str | None = None,
+    force: bool = False,
+    ref: str | None = None,
+    active: bool | None = None,
+) -> dict[str, object]:
+    return _with_api_meta(
+        {
+            "installed_skill": install_external_skill(
+                project_root=Path(project_root).resolve(),
+                slug=slug,
+                git_url=git_url,
+                name=name,
+                force=force,
+                ref=ref,
+                active=active,
+            )
+        }
+    )
+
+
+def skills_import_payload(
+    project_root: str | Path,
+    slug: str,
+    *,
+    limit: int = 5,
+    active: bool | None = None,
+) -> dict[str, object]:
+    return _with_api_meta(import_external_skill_candidates(project_root=Path(project_root).resolve(), slug=slug, limit=limit, active=active))
+
+
+def skills_sync_payload(project_root: str | Path, slug: str | None = None, *, all_sources: bool = False) -> dict[str, object]:
+    root = Path(project_root).resolve()
+    if all_sources:
+        return _with_api_meta(sync_all_external_skills(project_root=root))
+    if slug is None:
+        return _with_api_meta({"error": "missing_slug"})
+    return _with_api_meta({"synced_skill": sync_external_skill(project_root=root, slug=slug)})
+
+
+def skills_remove_payload(project_root: str | Path, slug: str) -> dict[str, object]:
+    return _with_api_meta({"removed_skill": remove_external_skill(project_root=Path(project_root).resolve(), slug=slug)})
+
+
+def skills_activate_payload(project_root: str | Path, slug: str) -> dict[str, object]:
+    return _with_api_meta({"activated_skill": activate_external_skill(project_root=Path(project_root).resolve(), slug=slug)})
+
+
+def skills_deactivate_payload(project_root: str | Path, slug: str) -> dict[str, object]:
+    return _with_api_meta({"deactivated_skill": deactivate_external_skill(project_root=Path(project_root).resolve(), slug=slug)})
 
 
 def report_payload(project_root: str | Path) -> dict[str, object]:

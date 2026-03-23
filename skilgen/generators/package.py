@@ -9,6 +9,7 @@ from skilgen.agents.requirements_parser import parse_project_intent
 from skilgen.deep_agents_core import run_deep_text
 from skilgen.core.config import render_default_config
 from skilgen.core.context import build_codebase_context
+from skilgen.external_skills import active_external_skills, detect_external_skill_sources, external_skill_policy, installed_external_skills, ranked_external_skills
 from skilgen.core.models import RequirementsContext
 
 
@@ -97,6 +98,9 @@ def _render_traceability_report_native(context: RequirementsContext, project_roo
     intent = parse_project_intent(project_root, requirements_path)
     signals = analyze_codebase(project_root)
     codebase_context = build_codebase_context(project_root, context)
+    installed_skill_packs = installed_external_skills(project_root)
+    ranked_skill_packs = ranked_external_skills(project_root).get("skills", [])
+    policy = external_skill_policy(project_root)
     evidence_map = {
         "backend": [*signals.backend_routes[:3], *signals.services[:2], *signals.data_models[:2], *signals.auth_files[:1]],
         "frontend": [*signals.frontend_routes[:3], *signals.components[:2], *signals.state_files[:2], *signals.design_system_files[:1]],
@@ -163,6 +167,27 @@ def _render_traceability_report_native(context: RequirementsContext, project_roo
             "",
         ]
     )
+    lines.extend(["## External Skill Traceability"])
+    lines.append(f"- Policy mode: `{policy['policy_mode']}`")
+    if installed_skill_packs:
+        for entry in installed_skill_packs[:8]:
+            provenance = entry.get("provenance", {}) if isinstance(entry.get("provenance"), dict) else {}
+            license_payload = entry.get("license", {}) if isinstance(entry.get("license"), dict) else {}
+            lines.append(
+                f"- Installed `{entry.get('slug', 'unknown')}` from `{provenance.get('repository_url', entry.get('repository_url', 'unknown'))}`"
+            )
+            lines.append(f"  Trust: `{entry.get('trust_level', 'unknown')}` score `{entry.get('trust_score', 0)}`")
+            lines.append(f"  License: `{license_payload.get('summary', 'unknown')}`")
+            if provenance.get("imported_from"):
+                lines.append(f"  Imported from directory source: `{provenance['imported_from']}`")
+    else:
+        lines.append("- No external skill packs were installed for this run.")
+    if ranked_skill_packs:
+        lines.append("")
+        lines.append("### Preferred External Packs")
+        for entry in ranked_skill_packs[:5]:
+            lines.append(f"- `{entry['slug']}`: {entry.get('priority_reason', 'Ranked by trust and repo fit.')}")
+    lines.append("")
     gaps: list[str] = []
     if signals.backend_routes and not signals.tests:
         gaps.append("Backend routes exist but no tests were detected for endpoint validation.")
@@ -205,6 +230,7 @@ def _render_project_report_native(context: RequirementsContext, project_root: Pa
     requirements_path = context.requirements_path if context.requirements_path.exists() else None
     features = extract_features(requirements_path, project_root)
     codebase_context = build_codebase_context(project_root, context)
+    ranked_skill_packs = ranked_external_skills(project_root).get("skills", [])
     domain_names = ", ".join(record.name for record in codebase_context.detected_domains)
     lines = [
         "# Report",
@@ -246,6 +272,50 @@ def _render_project_report_native(context: RequirementsContext, project_root: Pa
         lines.append(f"- Components: start from `{signals.components[0]}`")
     if not any([signals.backend_routes, signals.services, signals.frontend_routes, signals.components]):
         lines.append("- No concrete route/service/component files were detected yet; start from the requirements and roadmap skills.")
+    lines.extend(
+        [
+            "",
+            "## External Skill Packs",
+            f"- Installed packs: {len(installed_external_skills(project_root))}",
+            f"- Active packs: {len(active_external_skills(project_root))}",
+        ]
+    )
+    if ranked_skill_packs:
+        lines.append("- Preferred packs to load first:")
+        for entry in ranked_skill_packs[:5]:
+            lock_metadata = entry.get("lock_metadata", {})
+            if not isinstance(lock_metadata, dict):
+                lock_metadata = {}
+            license_payload = lock_metadata.get("license", {})
+            if not isinstance(license_payload, dict):
+                license_payload = {}
+            lines.append(
+                f"  - `{entry['slug']}` (score {entry.get('priority_score', 0)}, trust `{entry.get('trust_level', 'unknown')}`, license `{license_payload.get('summary', 'unknown')}`)"
+            )
+    else:
+        lines.append("- No active external skill packs have been ranked yet.")
+    imported_packs = [
+        entry
+        for entry in installed_external_skills(project_root)
+        if isinstance(entry.get("provenance"), dict) and entry["provenance"].get("imported_from")
+    ]
+    lines.extend(["", "## External Skill Provenance"])
+    if installed_external_skills(project_root):
+        for entry in installed_external_skills(project_root)[:8]:
+            provenance = entry.get("provenance", {}) if isinstance(entry.get("provenance"), dict) else {}
+            lines.append(
+                f"- `{entry.get('slug', 'unknown')}` from `{provenance.get('repository_url', entry.get('repository_url', 'unknown'))}` at `{provenance.get('resolved_revision', entry.get('resolved_revision', 'unknown'))}`"
+            )
+            if provenance.get("imported_from"):
+                lines.append(f"  Imported from: `{provenance['imported_from']}`")
+    else:
+        lines.append("- No external skill packs have been installed yet.")
+    if imported_packs:
+        lines.append("")
+        lines.append("### Imported Directory Candidates")
+        for entry in imported_packs[:8]:
+            provenance = entry.get("provenance", {}) if isinstance(entry.get("provenance"), dict) else {}
+            lines.append(f"- `{entry.get('slug', 'unknown')}` imported from `{provenance.get('imported_from', 'unknown')}`")
     lines.append("")
     return "\n".join(lines)
 
@@ -589,6 +659,26 @@ def render_agents_contract(context: RequirementsContext, project_root: Path) -> 
         for node in parent_skills
     )
     inferred_domains = [node for node in codebase_context.domain_graph.nodes if node.parent_domain is None]
+    installed_skill_packs = installed_external_skills(project_root)
+    active_skill_packs = active_external_skills(project_root)
+    ranked_skill_packs = ranked_external_skills(project_root).get("skills", [])
+    policy = external_skill_policy(project_root)
+    external_skill_lines = [
+        f"- `{entry['slug']}` ({entry.get('ecosystem', 'unknown')}, trust `{entry.get('trust_level', 'unknown')}`): installed at `{entry.get('install_path', '')}`"
+        for entry in installed_skill_packs
+    ] or ["- No external skill packs have been installed yet."]
+    active_external_lines = [
+        f"- `{entry['slug']}` ({entry.get('lock_metadata', {}).get('normalized', {}).get('adapter', 'raw')}, trust score {entry.get('lock_metadata', {}).get('trust_score', entry.get('trust_score', 0))}): load from `{entry.get('install_path', '')}`"
+        for entry in active_skill_packs
+    ] or ["- No external skill packs are currently active."]
+    ranked_external_lines = [
+        f"- `{entry['slug']}` (score {entry.get('priority_score', 0)}): {entry.get('priority_reason', 'Ranked by trust and repo fit.')}"
+        for entry in ranked_skill_packs
+    ] or ["- No active external skill packs have been ranked yet."]
+    recommended_external_lines = [
+        f"- `{entry['slug']}`: {'; '.join(entry.get('reasons', []))}"
+        for entry in detect_external_skill_sources(project_root).get("manual_recommendations", [])
+    ] or ["- No additional external skill recommendations were inferred."]
     priority_lines = [
         f"- `{path}`"
         for path in decision.prioritized_skill_paths
@@ -618,6 +708,23 @@ def render_agents_contract(context: RequirementsContext, project_root: Path) -> 
             "",
             "## Skill Entry Points",
             *skill_refs,
+            "",
+            "## External Skill Packs",
+            *external_skill_lines,
+            "",
+            "## Active External Skill Packs",
+            *active_external_lines,
+            "",
+            "## External Skill Policy",
+            f"- Policy mode: `{policy['policy_mode']}`",
+            f"- Auto install enabled: `{policy['auto_install_enabled']}`",
+            f"- Auto activate enabled: `{policy['auto_activate_enabled']}`",
+            "",
+            "## Preferred External Skill Packs",
+            *ranked_external_lines,
+            "",
+            "## Suggested External Skill Packs",
+            *recommended_external_lines,
             "",
             "## Recommended Start Order",
             f"- Input mode: `{input_mode}`",

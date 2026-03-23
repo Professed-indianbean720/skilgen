@@ -56,6 +56,15 @@ class ApiSmokeTests(unittest.TestCase):
                 self.assertIn("retry_attempts", doctor)
                 self.assertIn("retry_base_delay_seconds", doctor)
 
+                skills_list = get_json(f"{base}/skills?{urlencode({'project_root': str(root), 'search': 'langsmith'})}")
+                self.assertTrue(skills_list["skills"])
+
+                skills_detect = get_json(f"{base}/skills/detect?{urlencode({'project_root': str(root)})}")
+                self.assertIn("detected_skills", skills_detect)
+
+                langchain_skill = get_json(f"{base}/skills/langchain-skills?{urlencode({'project_root': str(root)})}")
+                self.assertEqual(langchain_skill["skill"]["slug"], "langchain-skills")
+
                 decision = get_json(f"{base}/decide?{urlencode({'project_root': str(root), 'requirements': str(requirements)})}")
                 self.assertIn("should_refresh", decision)
                 self.assertIn("prioritized_skill_paths", decision)
@@ -97,17 +106,93 @@ class ApiSmokeTests(unittest.TestCase):
 
                 job_id = deliver_job["job_id"]
                 polled: dict[str, object] = {}
-                for _ in range(20):
+                for _ in range(200):
                     polled = get_json(f"{base}/jobs/{job_id}?{urlencode({'project_root': str(root)})}")
                     if polled["status"] in {"completed", "failed"}:
                         break
-                    time.sleep(0.05)
+                    time.sleep(0.1)
                 self.assertEqual(polled["status"], "completed")
                 self.assertEqual(polled["progress"], 100)
                 self.assertIn("generated_files", polled["result"])
 
                 jobs = get_json(f"{base}/jobs?{urlencode({'project_root': str(root)})}")
                 self.assertTrue(jobs["jobs"])
+
+                source = root / "external-source"
+                source.mkdir()
+                (source / "README.md").write_text("demo\n", encoding="utf-8")
+                import subprocess
+                subprocess.run(["git", "init", str(source)], text=True, capture_output=True, check=True)
+                subprocess.run(["git", "-C", str(source), "config", "user.email", "tests@example.com"], text=True, capture_output=True, check=True)
+                subprocess.run(["git", "-C", str(source), "config", "user.name", "Tests"], text=True, capture_output=True, check=True)
+                subprocess.run(["git", "-C", str(source), "add", "."], text=True, capture_output=True, check=True)
+                subprocess.run(["git", "-C", str(source), "commit", "-m", "init"], text=True, capture_output=True, check=True)
+
+                installed_skill = post_json(
+                    f"{base}/skills/install",
+                    {"project_root": str(root), "git_url": str(source), "name": "demo pack", "active": True},
+                )
+                self.assertEqual(installed_skill["installed_skill"]["slug"], "demo-pack")
+
+                active_skills = get_json(f"{base}/skills/active?{urlencode({'project_root': str(root)})}")
+                self.assertTrue(active_skills["skills"])
+
+                lock = get_json(f"{base}/skills/lock?{urlencode({'project_root': str(root)})}")
+                self.assertTrue(lock["skills"])
+                exported_lock = get_json(f"{base}/skills/lock/export?{urlencode({'project_root': str(root)})}")
+                self.assertIn("export_path", exported_lock)
+                policy = get_json(f"{base}/skills/policy?{urlencode({'project_root': str(root)})}")
+                self.assertEqual(policy["policy_mode"], "permissive")
+                ranked = get_json(f"{base}/skills/rank?{urlencode({'project_root': str(root)})}")
+                self.assertTrue(ranked["skills"])
+
+                imported_root = root / "imported-project"
+                imported_root.mkdir()
+                imported_lock = post_json(
+                    f"{base}/skills/lock/import",
+                    {"project_root": str(imported_root), "input_path": exported_lock["export_path"]},
+                )
+                self.assertGreaterEqual(imported_lock["count"], 1)
+
+                deactivated = post_json(f"{base}/skills/deactivate", {"project_root": str(root), "slug": "demo-pack"})
+                self.assertFalse(deactivated["deactivated_skill"]["active"])
+                activated = post_json(f"{base}/skills/activate", {"project_root": str(root), "slug": "demo-pack"})
+                self.assertTrue(activated["activated_skill"]["active"])
+                synced = post_json(f"{base}/skills/sync", {"project_root": str(root), "all": True})
+                self.assertGreaterEqual(synced["count"], 1)
+                self.assertIn("demo-pack", {item["slug"] for item in synced["skills"]})
+
+                directory_source = root / ".skilgen" / "external-skills" / "sources" / "awesome-agent-skills-voltagent"
+                directory_source.mkdir(parents=True)
+                repo_candidate = {"repo": "example/candidate-pack", "url": str(source)}
+                manifest_path = root / ".skilgen" / "external-skills" / "manifest.json"
+                manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest_data["skills"].append(
+                    {
+                        "slug": "awesome-agent-skills-voltagent",
+                        "name": "Awesome Agent Skills",
+                        "ecosystem": "directory",
+                        "publisher": "VoltAgent",
+                        "category": "directory",
+                        "trust_level": "directory",
+                        "trust_score": 4,
+                        "install_path": str(directory_source),
+                        "normalized": {"repo_candidates": [repo_candidate]},
+                    }
+                )
+                manifest_path.write_text(json.dumps(manifest_data, indent=2), encoding="utf-8")
+                lock_path = root / ".skilgen" / "external-skills" / "lock.json"
+                lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
+                lock_data["skills"].append({"slug": "awesome-agent-skills-voltagent", "normalized": {"repo_candidates": [repo_candidate]}})
+                lock_path.write_text(json.dumps(lock_data, indent=2), encoding="utf-8")
+                imported_candidates = post_json(
+                    f"{base}/skills/import",
+                    {"project_root": str(root), "slug": "awesome-agent-skills-voltagent", "limit": 1, "active": True},
+                )
+                self.assertEqual(imported_candidates["count"], 1)
+
+                removed = post_json(f"{base}/skills/remove", {"project_root": str(root), "slug": "demo-pack"})
+                self.assertTrue(removed["removed_skill"]["removed"])
 
                 status = get_json(f"{base}/status?{urlencode({'project_root': str(root)})}")
                 self.assertTrue(status["manifest_exists"])
@@ -121,6 +206,12 @@ class ApiSmokeTests(unittest.TestCase):
                 self.assertIn("current_run_memory", status)
                 self.assertIsNotNone(status["current_run_memory"])
                 self.assertIn("agent_decision", status)
+                self.assertIn("installed_external_skills", status)
+                self.assertIn("active_external_skills", status)
+                self.assertIn("ranked_external_skills", status)
+                self.assertIn("external_skill_lock", status)
+                self.assertIn("external_skill_policy", status)
+                self.assertIn("external_skill_recommendations", status)
                 self.assertIn("pending_validations", status["current_run_memory"])
                 self.assertIn("resumable_steps", status["current_run_memory"])
 

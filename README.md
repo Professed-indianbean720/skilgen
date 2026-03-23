@@ -19,31 +19,58 @@
   Let AI work for you: Skilgen uncovers the deep nuances of your codebase, identifies the strongest implementation patterns, and materializes the right <code>skills/</code> so coding agents can make better decisions from the start.
 </p>
 
-## Why Skilgen
+## What It Does
 
-Most AI workflows start from scratch.
+Skilgen turns your project into an agent-ready operating system.
 
-Skilgen starts from your project.
+Instead of starting every AI session from scratch, Skilgen reads your codebase, your requirements, or both, then generates the context, memory, and reusable skills that coding agents need to work well immediately.
 
-Instead of re-explaining architecture, features, constraints, and domain rules to every new agent, Skilgen generates a reusable operating system for the repo:
+In one pass, Skilgen can:
+- understand the real shape of your repo
+- infer domains, boundaries, and implementation patterns
+- generate `AGENTS.md`, `FEATURES.md`, `REPORT.md`, and `TRACEABILITY.md`
+- generate a reusable `skills/` tree for backend, frontend, roadmap, and dynamically inferred domains
+- decide when skills should refresh and what an agent should load first
+- discover, install, rank, and manage external skill ecosystems through one interface
+
+## Why It Matters
+
+Most AI workflows lose time on re-explaining context.
+
+Skilgen makes that context reusable.
+
+It gives agents:
+- project-specific guidance instead of generic prompting
+- stable memory and refresh signals instead of stale assumptions
+- stronger execution patterns instead of ad-hoc improvisation
+- a one-stop shop for both generated repo skills and external skill ecosystems
+
+That means agents do not just work faster. They work with better judgment.
+
+## At A Glance
+
+| You Have | Skilgen Produces | Why It Helps |
+| --- | --- | --- |
+| Existing codebase | domain graph, skills, reports, agent contract | agents understand the actual repo before changing it |
+| Requirements document | feature intent, roadmap, starter skills | agents can plan before implementation exists |
+| Codebase + requirements | highest-fidelity operating context | agents align shipped behavior with planned scope |
+| External skill ecosystems | installable, rankable, managed skill packs | agents can pull in trusted skills from one place |
+
+## What You Get Fast
+
+- `AGENTS.md` for the top-level agent contract
 - `FEATURES.md` for product behavior
 - `REPORT.md` for project-level understanding
 - `TRACEABILITY.md` for source-to-output reasoning
-- `skills/MANIFEST.md` for entry-point discovery
-- `skills/**/SKILL.md` for domain-specific guidance agents can execute immediately
+- `skills/MANIFEST.md` and `skills/**/SKILL.md` for execution-ready guidance
+- `.skilgen/state/` and `.skilgen/memory/` for freshness and continuity
 
-That means agents do not just write code faster. They write with better judgment.
+## Quick Mental Model
 
-Skilgen helps agents:
-- discover hidden implementation nuances before they make changes
-- pick the right skill for the exact backend, frontend, or roadmap context
-- follow stronger engineering patterns instead of improvising with generic prompts
-- produce more consistent, more enterprise-ready code across the repo
-
-The result is simple:
-- point Skilgen at a codebase
-- point it at a requirements doc
-- or combine both for the highest-fidelity output
+- Skilgen reads your project
+- Skilgen materializes the right skills and docs
+- agents load those skills instead of guessing
+- external ecosystems can also be installed and managed through Skilgen
 
 ## What Skilgen Understands
 
@@ -167,6 +194,110 @@ Build a roadmap:
 skilgen plan --requirements docs/product-requirements.docx --project-root .
 ```
 
+Discover consolidated external skill ecosystems through Skilgen:
+
+```bash
+skilgen skills list
+skilgen skills detect --project-root .
+skilgen skills show anthropic-skills
+```
+
+Install a curated or custom external skill source into the local Skilgen-managed registry:
+
+```bash
+skilgen skills install anthropic-skills --project-root .
+skilgen skills active --project-root .
+skilgen skills lock --project-root .
+skilgen skills lock-export --project-root .
+skilgen skills lock-import --project-root ./another-repo --input-path ./.skilgen/external-skills/export-lock.json
+skilgen skills policy --project-root .
+skilgen skills rank --project-root .
+skilgen skills import awesome-agent-skills-voltagent --project-root . --limit 5
+skilgen skills sync anthropic-skills --project-root .
+skilgen skills remove anthropic-skills --project-root .
+skilgen skills install --git-url https://github.com/example/skills.git --name my-skill-pack --project-root .
+```
+
+When Skilgen runs on an existing repository, it also looks for strong ecosystem hints such as:
+- `CLAUDE.md` or `.claude/`
+- LangChain, LangGraph, Deep Agents, or LangSmith dependencies
+- Hugging Face package usage
+- GitHub Copilot instructions
+- n8n workflow patterns
+- existing `SKILL.md` / `skills/` structures
+
+If a strong match is found, Skilgen auto-installs the matching external skill pack into `.skilgen/external-skills/` so coding agents can use it immediately.
+Installed packs are tracked with:
+- `manifest.json` for installed sources
+- `lock.json` for resolved revisions, active/inactive state, and normalized entrypoint indexes
+- `normalized/<slug>/` for Skilgen-friendly adapter summaries
+
+Normalized adapter summaries now include:
+- grouped entrypoints by ecosystem
+- detected README title/summary
+- detected license metadata
+- downstream GitHub repo candidates for awesome-list and directory sources
+- ecosystem-native views such as Anthropic skill families, LangChain/LangSmith families, and Hugging Face task families
+
+Skilgen also ranks active packs by:
+- repo detection signals
+- trust level
+- ecosystem fit
+- normalized entrypoint depth
+
+Portable lockfiles and bulk import:
+- `skilgen skills lock-export` captures the exact external-skill setup for reuse in another repo
+- `skilgen skills lock-import` restores that setup, including active state
+- `skilgen skills import <directory-slug>` converts downstream directory candidates into first-class Skilgen-managed installs
+
+Policy modes:
+- `permissive`: use trust/allowlist/denylist as configured
+- `official_only`: only official/spec catalog sources can auto-install
+- `review_required`: matching packs can auto-install but stay inactive until you activate them explicitly
+
+## Supported External Skills
+
+Skilgen can act as a one-stop shop for skill ecosystems by exposing them through the same interface:
+
+```bash
+skilgen skills list
+skilgen skills detect --project-root .
+skilgen skills show <slug>
+skilgen skills install <slug> --project-root .
+skilgen skills activate <slug> --project-root .
+skilgen skills deactivate <slug> --project-root .
+skilgen skills active --project-root .
+skilgen skills lock --project-root .
+skilgen skills lock-export --project-root .
+skilgen skills lock-import --project-root . --input-path ./external-skills-lock.json
+skilgen skills policy --project-root .
+skilgen skills rank --project-root .
+skilgen skills import <directory-slug> --project-root . --limit 5
+skilgen skills sync <slug> --project-root .
+skilgen skills sync --all --project-root .
+skilgen skills remove <slug> --project-root .
+```
+
+| Publisher | Source | Category | Trust | Auto Install | Best For | Install |
+| --- | --- | --- | --- | --- | --- | --- |
+| Anthropic | `anthropic-skills` | Official | Official | Yes | Claude Code skills and templates | `skilgen skills install anthropic-skills --project-root .` |
+| LangChain AI | `langchain-skills` | Official | Official | Yes | LangChain, LangGraph, Deep Agents | `skilgen skills install langchain-skills --project-root .` |
+| LangChain AI | `langsmith-skills` | Official | Official | Yes | LangSmith evaluation and tracing skills | `skilgen skills install langsmith-skills --project-root .` |
+| Hugging Face | `huggingface-skills` | Official | Official | Yes | HF hub, datasets, jobs, trainers | `skilgen skills install huggingface-skills --project-root .` |
+| Hugging Face | `huggingface-upskill` | Official | Official | Yes | Skill generation and benchmarking | `skilgen skills install huggingface-upskill --project-root .` |
+| GitHub / Microsoft | `awesome-copilot` | Official | Official | Yes | GitHub Copilot workflow skills | `skilgen skills install awesome-copilot --project-root .` |
+| agentskills.io | `agentskills-spec` | Spec | Spec | Yes | SKILL.md format reference | `skilgen skills install agentskills-spec --project-root .` |
+| czlonkowski | `n8n-mcp-patterns` | Framework | Community | Yes | n8n MCP and workflow patterns | `skilgen skills install n8n-mcp-patterns --project-root .` |
+| Orchestra Research | `ai-research-skills` | Framework | Community | Yes | Research, RAG, CrewAI, LlamaIndex | `skilgen skills install ai-research-skills --project-root .` |
+| muratcankoylan | `context-engineering-skills` | Framework | Community | Yes | Context engineering and multi-agent patterns | `skilgen skills install context-engineering-skills --project-root .` |
+| yusufkaraaslan | `skill-seekers` | Tooling | Community | Manual | Converting docs/sites/repos into SKILL.md | `skilgen skills install skill-seekers --project-root .` |
+| VoltAgent | `awesome-agent-skills-voltagent` | Directory | Directory | Manual | Broad cross-ecosystem discovery | `skilgen skills install awesome-agent-skills-voltagent --project-root .` |
+| skillmatic-ai | `awesome-agent-skills-skillmatic` | Directory | Directory | Manual | Aggregated skill guides and links | `skilgen skills install awesome-agent-skills-skillmatic --project-root .` |
+| heilcheng | `awesome-agent-skills-heilcheng` | Directory | Directory | Manual | Claude, Codex, Copilot-oriented directories | `skilgen skills install awesome-agent-skills-heilcheng --project-root .` |
+| Prat011 | `awesome-llm-skills` | Directory | Directory | Manual | Workspace and multi-agent skill lists | `skilgen skills install awesome-llm-skills --project-root .` |
+| MoizIbnYousaf | `curated-ai-agent-skills` | Curated | Curated | Manual | Trust-aware curated skill packs | `skilgen skills install curated-ai-agent-skills --project-root .` |
+| LangChain AI | `skills-benchmarks` | Benchmarks | Official | Manual | Skill quality and benchmarking flows | `skilgen skills install skills-benchmarks --project-root .` |
+
 Generate the full skills system from codebase + requirements:
 
 ```bash
@@ -243,6 +374,7 @@ Roadmap planning example:
 - `skilgen features` builds a feature inventory from a codebase, requirements, or both
 - `skilgen plan` generates a roadmap view from a codebase, requirements, or both
 - `skilgen decide` tells agents whether to refresh skills, which domains to prioritize, and which memory files to load
+- `skilgen skills` lists, inspects, installs, syncs, and removes external skill ecosystems through a single Skilgen interface
 - `skilgen scan` generates docs and skills from the codebase and optionally a requirements file
 - `skilgen deliver` runs the main generation flow with or without a requirements file
 
@@ -277,6 +409,7 @@ Roadmap planning example:
 - `examples/codebase-only/README.md`: minimal repo scan without a requirements document
 - `examples/requirements-only/README.md`: requirements-driven generation from a spec alone
 - `examples/codebase-and-requirements/README.md`: combined high-fidelity generation flow
+- `examples/external-skills/README.md`: install, import, rank, and portable-lock workflows for external skills
 
 ## Model Configuration
 
